@@ -208,6 +208,13 @@ class SeagullHistoryCard extends HTMLElement {
     const periodMs = this._parsePeriodToMs(this._config.period || "12h");
     const endMs = Date.now();
     const startMs = endMs - periodMs;
+    const lineHeight = Number(theme.pearls.line_height) || 2;
+    const lineRadius = Number(theme.pearls.line_radius) || 999;
+    const pearlSize = Number(theme.pearls.pearl_size) || 12;
+    const pearlColor = this._resolveColor(theme.pearls.pearl_color, theme, mode);
+    const minPearlSize = Math.max(lineHeight + 2, Math.round(pearlSize * 0.34));
+    const segmentThresholdRatio = Number(rowCfg.segment_threshold_ratio ?? this._config.segment_threshold_ratio ?? 0.03);
+    const segmentThresholdMs = Math.max(1, periodMs * Math.max(0.002, Math.min(0.2, segmentThresholdRatio)));
 
     const normalized = history
       .map((it) => ({
@@ -271,12 +278,18 @@ class SeagullHistoryCard extends HTMLElement {
       const to = Math.max(startMs, Math.min(endMs, itv.to));
       if (to < from) continue;
 
+      const durationMs = Math.max(0, to - from);
+
       const left = ((from - startMs) / periodMs) * 100;
       const right = ((to - startMs) / periodMs) * 100;
       const width = Math.max(0, right - left);
 
-      if (width <= 0.25) {
-        marks.push(`<span class="seagull-history-pearl" style="left:${left.toFixed(3)}%;background:${this._escapeHtml(itv.color)};"></span>`);
+      if (durationMs < segmentThresholdMs) {
+        const t = segmentThresholdMs > 0 ? Math.min(1, durationMs / segmentThresholdMs) : 0;
+        const eventSize = minPearlSize + (pearlSize - minPearlSize) * t;
+        marks.push(
+          `<span class="seagull-history-pearl" style="left:${left.toFixed(3)}%;background:${this._escapeHtml(itv.color)};--pearl-size:${eventSize.toFixed(2)}px;"></span>`,
+        );
         continue;
       }
 
@@ -287,11 +300,6 @@ class SeagullHistoryCard extends HTMLElement {
         `<span class="${cls}" style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%;background:${this._escapeHtml(itv.color)};"></span>`,
       );
     }
-
-    const lineHeight = Number(theme.pearls.line_height) || 2;
-    const lineRadius = Number(theme.pearls.line_radius) || 999;
-    const pearlSize = Number(theme.pearls.pearl_size) || 12;
-    const pearlColor = this._resolveColor(theme.pearls.pearl_color, theme, mode);
 
     return `
       <div class="seagull-history-line pearls" style="height:${lineHeight}px;border-radius:${lineRadius}px;background:${lineColor};--pearl-size:${pearlSize}px;--pearl-color:${pearlColor};">
