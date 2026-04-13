@@ -1,4 +1,4 @@
-const SEAGULL_HISTORY_CARD_VERSION = "0.1.3";
+const SEAGULL_HISTORY_CARD_VERSION = "0.1.4";
 const SEAGULL_HISTORY_CARD_COMMIT = "dev";
 
 const SEAGULL_HISTORY_THEME_DEFAULT = {
@@ -86,10 +86,13 @@ class SeagullHistoryCard extends HTMLElement {
     this._applyCardStyles(theme, mode);
 
     const rowsHtml = this._buildRowsHtml(theme, mode);
-    const axisHtml = this._buildTimeAxisHtml();
+    const axis = this._buildTimeAxisParts();
     this._content.innerHTML = `
-      <div class="seagull-history-rows">${rowsHtml}</div>
-      ${axisHtml}
+      <div class="seagull-history-chart">
+        <div class="seagull-history-grid">${axis.gridTicksHtml}</div>
+        <div class="seagull-history-rows">${rowsHtml}</div>
+      </div>
+      ${axis.labelsHtml}
     `;
   }
 
@@ -229,16 +232,19 @@ class SeagullHistoryCard extends HTMLElement {
     `;
   }
 
-  _buildTimeAxisHtml() {
+  _buildTimeAxisParts() {
     const periodMs = this._parsePeriodToMs(this._config.period || "12h");
     const endMs = Date.now();
     const startMs = endMs - periodMs;
     const { stepMs, format } = this._getAxisStep(periodMs);
 
-    if (!stepMs || stepMs <= 0 || stepMs >= periodMs) return "";
+    if (!stepMs || stepMs <= 0 || stepMs >= periodMs) {
+      return { gridTicksHtml: "", labelsHtml: "" };
+    }
 
     const firstTick = Math.ceil(startMs / stepMs) * stepMs;
-    const ticks = [];
+    const gridTicks = [];
+    const labels = [];
 
     for (let ts = firstTick; ts <= endMs; ts += stepMs) {
       const x = ((ts - startMs) / periodMs) * 100;
@@ -246,20 +252,17 @@ class SeagullHistoryCard extends HTMLElement {
       const label = this._formatAxisLabel(ts, format);
 
       let labelClass = "";
-      if (x < 3) labelClass = " edge-left";
-      else if (x > 97) labelClass = " edge-right";
+      if (x <= 0.5) labelClass = " edge-left";
+      else if (x >= 99.5) labelClass = " edge-right";
 
-      ticks.push(`
-        <div class="seagull-history-axis-tick" style="left:${x.toFixed(3)}%"></div>
-        <div class="seagull-history-axis-label${labelClass}" style="left:${x.toFixed(3)}%">${this._escapeHtml(label)}</div>
-      `);
+      gridTicks.push(`<div class="seagull-history-grid-tick" style="left:${x.toFixed(3)}%"></div>`);
+      labels.push(`<div class="seagull-history-axis-label${labelClass}" style="left:${x.toFixed(3)}%">${this._escapeHtml(label)}</div>`);
     }
 
-    return `
-      <div class="seagull-history-axis-wrap">
-        <div class="seagull-history-axis">${ticks.join("")}</div>
-      </div>
-    `;
+    return {
+      gridTicksHtml: gridTicks.join(""),
+      labelsHtml: `<div class="seagull-history-axis-wrap"><div class="seagull-history-axis">${labels.join("")}</div></div>`,
+    };
   }
 
   _getAxisStep(periodMs) {
@@ -319,7 +322,26 @@ class SeagullHistoryCard extends HTMLElement {
     const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
 
     this._styleEl.textContent = `
-      .seagull-history-rows { display:flex; flex-direction:column; gap:10px; }
+      .seagull-history-chart { position:relative; }
+      .seagull-history-grid {
+        position:absolute;
+        top:0;
+        bottom:0;
+        left:28px;
+        right:0;
+        pointer-events:none;
+        z-index:0;
+      }
+      .seagull-history-grid-tick {
+        position:absolute;
+        top:0;
+        bottom:0;
+        width:1px;
+        transform:translateX(-0.5px);
+        background:${lineColor};
+        opacity:0.32;
+      }
+      .seagull-history-rows { position:relative; z-index:1; display:flex; flex-direction:column; gap:10px; }
       .seagull-history-row { display:flex; flex-direction:column; gap:6px; }
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
       .seagull-history-row-icon { width:20px; height:20px; color:${textColor}; opacity:0.9; flex:0 0 auto; }
@@ -337,20 +359,11 @@ class SeagullHistoryCard extends HTMLElement {
         box-sizing:border-box;
       }
       .seagull-history-row-name { margin-left:28px; font-size:12px; line-height:1.2; opacity:0.95; }
-      .seagull-history-axis-wrap { margin-left:28px; margin-top:4px; }
+      .seagull-history-axis-wrap { margin-left:28px; margin-top:6px; }
       .seagull-history-axis { position:relative; height:22px; }
-      .seagull-history-axis-tick {
-        position:absolute;
-        top:0;
-        width:1px;
-        height:8px;
-        background:${lineColor};
-        transform:translateX(-0.5px);
-        opacity:0.85;
-      }
       .seagull-history-axis-label {
         position:absolute;
-        top:10px;
+        top:0;
         transform:translateX(-50%);
         font-size:10px;
         line-height:1;
