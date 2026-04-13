@@ -1,4 +1,4 @@
-const SEAGULL_HISTORY_CARD_VERSION = "0.1.4";
+const SEAGULL_HISTORY_CARD_VERSION = "0.1.5";
 const SEAGULL_HISTORY_CARD_COMMIT = "dev";
 
 const SEAGULL_HISTORY_THEME_DEFAULT = {
@@ -128,7 +128,6 @@ class SeagullHistoryCard extends HTMLElement {
           end_time: endIso,
           entity_ids: entities,
           minimal_response: true,
-          no_attributes: true,
         });
       } else {
         const path = `history/period/${startIso}?filter_entity_id=${encodeURIComponent(entities.join(","))}&end_time=${endIso}&minimal_response`;
@@ -194,26 +193,34 @@ class SeagullHistoryCard extends HTMLElement {
     const periodMs = this._parsePeriodToMs(this._config.period || "12h");
     const endMs = Date.now();
     const startMs = endMs - periodMs;
+    const samplePoints = Number(rowCfg.sample_points ?? this._config.sample_points ?? this._autoSamplePoints(periodMs));
+    const points = Number.isFinite(samplePoints) ? Math.max(8, Math.min(240, Math.floor(samplePoints))) : 72;
+    const stepMs = periodMs / (points - 1);
 
     const normalized = history
       .map((it) => ({
         state: String(it.state ?? it.s ?? ""),
-        ts: new Date(it.last_changed || it.last_updated || it.lu || it.lc || 0).getTime(),
+        ts: this._toEpochMs(it.last_changed || it.last_updated || it.lu || it.lc || 0),
       }))
       .filter((it) => Number.isFinite(it.ts))
       .sort((a, b) => a.ts - b.ts);
 
     const pearls = [];
-    let prevState = null;
-    for (const item of normalized) {
-      const isActive = activeStates.includes(item.state);
-      const wasActive = prevState != null && activeStates.includes(prevState);
-      prevState = item.state;
+    const stateAt = (ts) => {
+      if (!normalized.length) return String(this._hass.states[entityId]?.state ?? "");
+      let state = normalized[0].state;
+      for (const item of normalized) {
+        if (item.ts <= ts) state = item.state;
+        else break;
+      }
+      return state;
+    };
 
-      if (!isActive || wasActive) continue;
-      if (item.ts < startMs || item.ts > endMs) continue;
-
-      const x = ((item.ts - startMs) / periodMs) * 100;
+    for (let i = 0; i < points; i += 1) {
+      const ts = startMs + stepMs * i;
+      const state = stateAt(ts);
+      if (!activeStates.includes(state)) continue;
+      const x = (i / (points - 1)) * 100;
       pearls.push(`<span class="seagull-history-pearl" style="left:${x.toFixed(3)}%"></span>`);
     }
 
@@ -434,6 +441,28 @@ class SeagullHistoryCard extends HTMLElement {
     const unit = m[2];
     const mult = { s: 1000, m: 60000, h: 3600000, d: 86400000, w: 604800000 }[unit] || 3600000;
     return num * mult;
+  }
+
+  _autoSamplePoints(periodMs) {
+    const H = 3600000;
+    const D = 86400000;
+    if (periodMs <= 2 * H) return 96;
+    if (periodMs <= 12 * H) return 72;
+    if (periodMs <= 24 * H) return 96;
+    if (periodMs <= 2 * D) return 120;
+    if (periodMs <= 7 * D) return 140;
+    return 180;
+  }
+
+  _toEpochMs(value) {
+    if (typeof value === "number") {
+      return value < 1e12 ? value * 1000 : value;
+    }
+    const parsed = new Date(value).getTime();
+    if (Number.isFinite(parsed)) return parsed;
+    const num = Number(value);
+    if (!Number.isFinite(num)) return NaN;
+    return num < 1e12 ? num * 1000 : num;
   }
 
   _escapeHtml(value) {
