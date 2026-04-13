@@ -1,4 +1,4 @@
-const SEAGULL_HISTORY_CARD_VERSION = "0.1.5";
+const SEAGULL_HISTORY_CARD_VERSION = "0.1.0";
 const SEAGULL_HISTORY_CARD_COMMIT = "dev";
 
 const SEAGULL_HISTORY_THEME_DEFAULT = {
@@ -482,6 +482,28 @@ class SeagullHistoryCard extends HTMLElement {
     link.setAttribute("data-seagull-history-font", url);
     document.head.appendChild(link);
   }
+}
+
+class SeagullHistoryCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config || {};
+    this._render();
+  }
+
+  _render() {
+    this.innerHTML = `
+      <div style="padding:12px 0; opacity:.9; font-size:13px; line-height:1.4;">
+        <div style="margin-top:12px;background:var(--card-background-color,#f3f4f6);border-radius:9999px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--divider-color,#d1d5db);">
+          <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Seagull History Card</div>
+          <div style="background:#0ea5e9;color:#fff;border-radius:9999px;padding:2px 8px;font-size:12px;font-weight:700;line-height:1.6;">v${SEAGULL_HISTORY_CARD_VERSION}</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+if (!customElements.get("seagull-history-card-editor")) {
+  customElements.define("seagull-history-card-editor", SeagullHistoryCardEditor);
 }
 
 if (!customElements.get("seagull-history-card")) {
