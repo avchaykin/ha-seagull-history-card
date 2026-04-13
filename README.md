@@ -3,7 +3,7 @@
 Custom Lovelace card for Home Assistant to display entity history in compact visual styles.
 
 Current style:
-- `pearls` — timeline line with pearls where the entity was in an active state (`on` by default).
+- `pearls` — timeline line with pearls when a strong value appears (short events are preserved).
 
 Planned next styles: bars, density, stepped segments.
 
@@ -40,8 +40,19 @@ entities:
   - `entity` (required)
   - `name` (optional)
   - `icon` (optional)
-  - `active_states` (optional, default: `["on"]`)
-  - `sample_points` (optional)
+  - `show_value` (optional)
+    - string: `show_value: on`
+    - list/object with color:
+      ```yaml
+      show_value:
+        values: [open, unlocked]
+        color: red
+      ```
+  - default strong values (when `show_value` omitted):
+    - `lock.*` -> `unlocked`
+    - `cover.*` -> `open`/`opening`
+    - `binary_sensor` door/window/opening/garage/lock classes -> `open`/`unlocked`/`on`
+    - others -> `on`
 - `theme`: theme overrides (palette and card params)
 
 Card-level visual params (also overridable via `theme.card`):

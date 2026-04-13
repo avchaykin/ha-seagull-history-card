@@ -28,8 +28,6 @@ const SEAGULL_HISTORY_THEME_DEFAULT = {
   },
 };
 
-const ACTIVE_STATES_DEFAULT = ["on"];
-
 class SeagullHistoryCard extends HTMLElement {
   static getStubConfig() {
     return {
@@ -188,7 +186,7 @@ class SeagullHistoryCard extends HTMLElement {
 
         let chartHtml = `<div class="seagull-history-line"></div>`;
         if (style === "pearls") {
-          chartHtml = this._buildPearlsHtml(entityId, rowCfg, theme, mode);
+          chartHtml = this._buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode);
         }
 
         return `
@@ -204,16 +202,12 @@ class SeagullHistoryCard extends HTMLElement {
       .join("");
   }
 
-  _buildPearlsHtml(entityId, rowCfg, theme, mode) {
+  _buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode) {
     const history = this._history?.get(entityId) || [];
-    const activeStates = (rowCfg.active_states || this._config.active_states || ACTIVE_STATES_DEFAULT).map((s) => String(s));
 
     const periodMs = this._parsePeriodToMs(this._config.period || "12h");
     const endMs = Date.now();
     const startMs = endMs - periodMs;
-    const samplePoints = Number(rowCfg.sample_points ?? this._config.sample_points ?? this._autoSamplePoints(periodMs));
-    const points = Number.isFinite(samplePoints) ? Math.max(8, Math.min(240, Math.floor(samplePoints))) : 72;
-    const stepMs = periodMs / (points - 1);
 
     const normalized = history
       .map((it) => ({
@@ -223,26 +217,34 @@ class SeagullHistoryCard extends HTMLElement {
       .filter((it) => Number.isFinite(it.ts))
       .sort((a, b) => a.ts - b.ts);
 
-    const pearls = [];
-    const stateAt = (ts) => {
-      if (!normalized.length) return String(this._hass.states[entityId]?.state ?? "");
-      let state = normalized[0].state;
-      for (const item of normalized) {
-        if (item.ts <= ts) state = item.state;
-        else break;
-      }
-      return state;
-    };
+    const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
+    const showRules = this._normalizeShowValueRules(rowCfg.show_value ?? this._config.show_value, entityId, stateObj, lineColor);
 
-    for (let i = 0; i < points; i += 1) {
-      const ts = startMs + stepMs * i;
-      const state = stateAt(ts);
-      if (!activeStates.includes(state)) continue;
-      const x = (i / (points - 1)) * 100;
-      pearls.push(`<span class="seagull-history-pearl" style="left:${x.toFixed(3)}%"></span>`);
+    const pearls = [];
+    let stateAtStart = String(this._hass.states[entityId]?.state ?? "");
+    for (const item of normalized) {
+      if (item.ts <= startMs) stateAtStart = item.state;
+      else break;
     }
 
-    const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
+    if (this._isStrongState(stateAtStart, showRules)) {
+      const c = this._getStrongColor(stateAtStart, showRules, lineColor);
+      pearls.push(`<span class="seagull-history-pearl" style="left:0%;background:${this._escapeHtml(c)};"></span>`);
+    }
+
+    let prevState = stateAtStart;
+    for (const item of normalized) {
+      if (item.ts < startMs || item.ts > endMs) continue;
+      const currState = item.state;
+      const becomesStrong = this._isStrongState(currState, showRules) && !this._isStrongState(prevState, showRules);
+      if (becomesStrong) {
+        const x = ((item.ts - startMs) / periodMs) * 100;
+        const c = this._getStrongColor(currState, showRules, lineColor);
+        pearls.push(`<span class="seagull-history-pearl" style="left:${x.toFixed(3)}%;background:${this._escapeHtml(c)};"></span>`);
+      }
+      prevState = currState;
+    }
+
     const lineHeight = Number(theme.pearls.line_height) || 2;
     const lineRadius = Number(theme.pearls.line_radius) || 999;
     const pearlSize = Number(theme.pearls.pearl_size) || 12;
@@ -489,15 +491,108 @@ class SeagullHistoryCard extends HTMLElement {
     return num * mult;
   }
 
-  _autoSamplePoints(periodMs) {
-    const H = 3600000;
-    const D = 86400000;
-    if (periodMs <= 2 * H) return 96;
-    if (periodMs <= 12 * H) return 72;
-    if (periodMs <= 24 * H) return 96;
-    if (periodMs <= 2 * D) return 120;
-    if (periodMs <= 7 * D) return 140;
-    return 180;
+  _normalizeShowValueRules(showValueConfig, entityId, stateObj, fallbackColor) {
+    const toRule = (value, color) => {
+      if (value === null || value === undefined) return null;
+      return {
+        value: String(value).toLowerCase(),
+        color: color ? String(color) : fallbackColor,
+      };
+    };
+
+    const rules = [];
+    const pushRule = (value, color) => {
+      const r = toRule(value, color);
+      if (!r) return;
+      if (rules.some((x) => x.value === r.value && x.color === r.color)) return;
+      rules.push(r);
+    };
+
+    if (showValueConfig === null || showValueConfig === undefined) {
+      const defaults = this._defaultStrongValues(entityId, stateObj);
+      defaults.forEach((v) => pushRule(v, fallbackColor));
+      return rules;
+    }
+
+    if (typeof showValueConfig === "string" || typeof showValueConfig === "number" || typeof showValueConfig === "boolean") {
+      pushRule(showValueConfig, fallbackColor);
+      return rules;
+    }
+
+    if (Array.isArray(showValueConfig)) {
+      for (const item of showValueConfig) {
+        if (item && typeof item === "object" && !Array.isArray(item)) {
+          pushRule(item.value, item.color || fallbackColor);
+        } else {
+          pushRule(item, fallbackColor);
+        }
+      }
+      return rules;
+    }
+
+    if (showValueConfig && typeof showValueConfig === "object") {
+      const commonColor = showValueConfig.color || fallbackColor;
+
+      if (Object.prototype.hasOwnProperty.call(showValueConfig, "value")) {
+        const val = showValueConfig.value;
+        if (Array.isArray(val)) {
+          val.forEach((v) => pushRule(v, commonColor));
+        } else {
+          pushRule(val, commonColor);
+        }
+      }
+
+      for (const key of ["values", "items", "list"]) {
+        const arr = showValueConfig[key];
+        if (!Array.isArray(arr)) continue;
+        for (const item of arr) {
+          if (item && typeof item === "object" && !Array.isArray(item)) {
+            pushRule(item.value, item.color || commonColor);
+          } else {
+            pushRule(item, commonColor);
+          }
+        }
+      }
+
+      if (rules.length) return rules;
+    }
+
+    const defaults = this._defaultStrongValues(entityId, stateObj);
+    defaults.forEach((v) => pushRule(v, fallbackColor));
+    return rules;
+  }
+
+  _defaultStrongValues(entityId, stateObj) {
+    const domain = String(entityId || "").split(".")[0] || "";
+    const deviceClass = String(stateObj?.attributes?.device_class || "").toLowerCase();
+
+    if (domain === "lock") return ["unlocked"];
+    if (domain === "cover") return ["open", "opening"];
+    if (domain === "person" || domain === "device_tracker") return ["home"];
+
+    if (domain === "binary_sensor") {
+      if (["door", "window", "opening", "garage_door", "lock"].includes(deviceClass)) {
+        return ["open", "unlocked", "on"];
+      }
+      return ["on"];
+    }
+
+    if (domain === "sensor" && ["door", "window", "opening", "garage_door", "lock"].includes(deviceClass)) {
+      return ["open", "unlocked", "on"];
+    }
+
+    return ["on"];
+  }
+
+  _isStrongState(state, rules) {
+    const s = String(state ?? "").toLowerCase();
+    return rules.some((r) => r.value === s);
+  }
+
+  _getStrongColor(state, rules, fallbackColor) {
+    const s = String(state ?? "").toLowerCase();
+    const hit = rules.find((r) => r.value === s);
+    return hit?.color || fallbackColor;
   }
 
   _toEpochMs(value) {
