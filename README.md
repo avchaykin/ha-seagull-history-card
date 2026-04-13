@@ -40,22 +40,28 @@ entities:
   - `entity` (required)
   - `name` (optional)
   - `icon` (optional)
-  - `show_value` (optional)
-    - string: `show_value: on`
+  - `show_state` (optional)
+    - string: `show_state: on`
     - common color for multiple values:
       ```yaml
-      show_value:
+      show_state:
         values: [open, unlocked]
         color: red
       ```
     - per-value color:
       ```yaml
-      show_value:
+      show_state:
         - value: open
           color: red
         - value: unlocked
           color: blue
       ```
+  - `show_not_state` (optional)
+    - example: `show_not_state: unavailable`
+  - `show_above` (optional)
+    - example: `show_above: 25`
+  - `show_below` (optional)
+    - example: `show_below: 18`
   - default strong values (when `show_value` omitted):
     - `lock.*` -> `unlocked`
     - `cover.*` -> `open`/`opening`

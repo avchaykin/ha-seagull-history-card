@@ -20,7 +20,7 @@ const SEAGULL_HISTORY_THEME_DEFAULT = {
     font_url: "https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap",
   },
   pearls: {
-    line_height: 1,
+    line_height: 0.8,
     line_radius: 999,
     line_color: "$line_color",
     pearl_size: 12,
@@ -92,7 +92,7 @@ class SeagullHistoryCard extends HTMLElement {
     `;
 
     this._bindRowActions();
-    this._bindLineHover();
+    this._bindRowHover();
   }
 
   async _maybeFetchHistory() {
@@ -273,7 +273,7 @@ class SeagullHistoryCard extends HTMLElement {
       .sort((a, b) => a.ts - b.ts);
 
     const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
-    const showRules = this._normalizeShowValueRules(rowCfg.show_value ?? this._config.show_value, entityId, stateObj, lineColor);
+    const showRules = this._normalizeStrongRules(rowCfg, this._config, entityId, stateObj, lineColor);
 
     const marks = [];
     let stateAtStart = String(this._hass.states[entityId]?.state ?? "");
@@ -471,7 +471,7 @@ class SeagullHistoryCard extends HTMLElement {
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
       .seagull-history-row-icon { width:20px; height:20px; color:${textColor}; opacity:0.9; flex:0 0 auto; }
       .seagull-history-line { width:100%; position:relative; background:${lineColor}; }
-      .seagull-history-line.pearls { min-height:2px; }
+      .seagull-history-line.pearls { min-height:1px; }
       .seagull-history-pearl {
         position:absolute;
         top:50%;
@@ -565,15 +565,15 @@ class SeagullHistoryCard extends HTMLElement {
     );
   }
 
-  _bindLineHover() {
+  _bindRowHover() {
     this._ensureTooltip();
-    const lines = this._content?.querySelectorAll?.(".seagull-history-line[data-entity]") || [];
-    for (const line of lines) {
-      const entityId = line.getAttribute("data-entity");
+    const rows = this._content?.querySelectorAll?.(".seagull-history-row[data-entity]") || [];
+    for (const row of rows) {
+      const entityId = row.getAttribute("data-entity");
       if (!entityId) continue;
 
-      line.onmousemove = (ev) => this._showLineTooltip(ev, line, entityId);
-      line.onmouseleave = () => this._hideTooltip();
+      row.onmousemove = (ev) => this._showRowTooltip(ev, row, entityId);
+      row.onmouseleave = () => this._hideTooltip();
     }
   }
 
@@ -584,8 +584,11 @@ class SeagullHistoryCard extends HTMLElement {
     this._card.appendChild(this._tooltipEl);
   }
 
-  _showLineTooltip(ev, lineEl, entityId) {
+  _showRowTooltip(ev, rowEl, entityId) {
     if (!this._tooltipEl || !this._hass) return;
+
+    const lineEl = rowEl.querySelector(".seagull-history-line[data-entity]");
+    if (!lineEl) return;
 
     const rect = lineEl.getBoundingClientRect();
     if (!rect.width) return;
@@ -601,20 +604,19 @@ class SeagullHistoryCard extends HTMLElement {
     const rowCfg = this._getEntityRowConfig(entityId);
     const stateObj = this._hass.states[entityId];
     const lineColor = this._resolveColor(this._activeTheme?.theme?.pearls?.line_color, this._activeTheme?.theme, this._activeTheme?.mode) || "#94a3b8";
-    const showRules = this._normalizeShowValueRules(rowCfg.show_value ?? this._config.show_value, entityId, stateObj, lineColor);
+    const showRules = this._normalizeStrongRules(rowCfg, this._config, entityId, stateObj, lineColor);
     const normalized = this._getNormalizedHistory(entityId);
 
     const stateAt = this._stateAtTs(normalized, entityId, ts);
-    const nearest = this._nearestStrongEvent(ts, normalized, entityId, showRules, startMs, endMs);
+    const nearest = this._nearestStrongEventsSplit(ts, normalized, entityId, showRules, startMs, endMs);
 
-    const nearestLabel = nearest
-      ? `${this._formatTs(nearest.ts)} (${nearest.direction === "past" ? "было" : "будет"})`
-      : "нет в выбранном периоде";
+    const pastLabel = nearest.past ? this._formatTs(nearest.past) : "—";
+    const futureLabel = nearest.future ? this._formatTs(nearest.future) : "—";
 
     this._tooltipEl.innerHTML = `
       <div><b>Время:</b> ${this._escapeHtml(this._formatTs(ts))}</div>
       <div><b>Состояние:</b> ${this._escapeHtml(stateAt)}</div>
-      <div><b>Ближайшее событие:</b> ${this._escapeHtml(nearestLabel)}</div>
+      <div><b>Было:</b> ${this._escapeHtml(pastLabel)} &nbsp;&nbsp; <b>Будет:</b> ${this._escapeHtml(futureLabel)}</div>
     `;
 
     const cardRect = this._card.getBoundingClientRect();
@@ -669,7 +671,7 @@ class SeagullHistoryCard extends HTMLElement {
     return state;
   }
 
-  _nearestStrongEvent(ts, normalized, entityId, rules, startMs, endMs) {
+  _nearestStrongEventsSplit(ts, normalized, entityId, rules, startMs, endMs) {
     const events = [];
     let prev = this._stateAtTs(normalized, entityId, startMs);
     if (this._isStrongState(prev, rules)) events.push(startMs);
@@ -680,23 +682,23 @@ class SeagullHistoryCard extends HTMLElement {
       prev = item.state;
     }
 
-    let best = null;
+    let past = null;
+    let future = null;
     for (const t of events) {
-      const dist = Math.abs(t - ts);
-      if (!best || dist < best.dist) {
-        best = { ts: t, dist, direction: t <= ts ? "past" : "future" };
-      }
+      if (t <= ts && (past === null || t > past)) past = t;
+      if (t > ts && (future === null || t < future)) future = t;
     }
-    return best;
+    return { past, future };
   }
 
   _formatTs(ts) {
     const d = new Date(ts);
-    return d.toLocaleString(undefined, {
+    return d.toLocaleString("fr-FR", {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
   }
 
@@ -756,75 +758,105 @@ class SeagullHistoryCard extends HTMLElement {
     return num * mult;
   }
 
-  _normalizeShowValueRules(showValueConfig, entityId, stateObj, fallbackColor) {
-    const toRule = (value, color) => {
-      if (value === null || value === undefined) return null;
-      return {
-        value: String(value).toLowerCase(),
-        color: color ? String(color) : fallbackColor,
-      };
+  _normalizeStrongRules(rowCfg, cardCfg, entityId, stateObj, fallbackColor) {
+    const cfgState = rowCfg.show_state ?? cardCfg.show_state ?? rowCfg.show_value ?? cardCfg.show_value;
+    const cfgNot = rowCfg.show_not_state ?? cardCfg.show_not_state;
+    const cfgAbove = rowCfg.show_above ?? cardCfg.show_above;
+    const cfgBelow = rowCfg.show_below ?? cardCfg.show_below;
+
+    const rules = {
+      state: this._parseStateRules(cfgState, fallbackColor),
+      notState: this._parseStateRules(cfgNot, fallbackColor),
+      above: this._parseNumericRules(cfgAbove, fallbackColor),
+      below: this._parseNumericRules(cfgBelow, fallbackColor),
     };
 
-    const rules = [];
-    const pushRule = (value, color) => {
-      const r = toRule(value, color);
-      if (!r) return;
-      if (rules.some((x) => x.value === r.value && x.color === r.color)) return;
-      rules.push(r);
+    if (!rules.state.length && !rules.notState.length && !rules.above.length && !rules.below.length) {
+      rules.state = this._defaultStrongValues(entityId, stateObj).map((v) => ({ value: String(v).toLowerCase(), color: fallbackColor }));
+    }
+
+    return rules;
+  }
+
+  _parseStateRules(config, fallbackColor) {
+    const out = [];
+    const push = (value, color) => {
+      if (value === null || value === undefined) return;
+      out.push({ value: String(value).toLowerCase(), color: color ? String(color) : fallbackColor });
     };
 
-    if (showValueConfig === null || showValueConfig === undefined) {
-      const defaults = this._defaultStrongValues(entityId, stateObj);
-      defaults.forEach((v) => pushRule(v, fallbackColor));
-      return rules;
+    if (config === null || config === undefined) return out;
+
+    if (["string", "number", "boolean"].includes(typeof config)) {
+      push(config, fallbackColor);
+      return out;
     }
 
-    if (typeof showValueConfig === "string" || typeof showValueConfig === "number" || typeof showValueConfig === "boolean") {
-      pushRule(showValueConfig, fallbackColor);
-      return rules;
-    }
-
-    if (Array.isArray(showValueConfig)) {
-      for (const item of showValueConfig) {
-        if (item && typeof item === "object" && !Array.isArray(item)) {
-          pushRule(item.value, item.color || fallbackColor);
-        } else {
-          pushRule(item, fallbackColor);
-        }
+    if (Array.isArray(config)) {
+      for (const item of config) {
+        if (item && typeof item === "object" && !Array.isArray(item)) push(item.value, item.color || fallbackColor);
+        else push(item, fallbackColor);
       }
-      return rules;
+      return out;
     }
 
-    if (showValueConfig && typeof showValueConfig === "object") {
-      const commonColor = showValueConfig.color || fallbackColor;
-
-      if (Object.prototype.hasOwnProperty.call(showValueConfig, "value")) {
-        const val = showValueConfig.value;
-        if (Array.isArray(val)) {
-          val.forEach((v) => pushRule(v, commonColor));
-        } else {
-          pushRule(val, commonColor);
-        }
+    if (config && typeof config === "object") {
+      const commonColor = config.color || fallbackColor;
+      if (Object.prototype.hasOwnProperty.call(config, "value")) {
+        const v = config.value;
+        if (Array.isArray(v)) v.forEach((x) => push(x, commonColor));
+        else push(v, commonColor);
       }
-
       for (const key of ["values", "items", "list"]) {
-        const arr = showValueConfig[key];
+        const arr = config[key];
         if (!Array.isArray(arr)) continue;
         for (const item of arr) {
-          if (item && typeof item === "object" && !Array.isArray(item)) {
-            pushRule(item.value, item.color || commonColor);
-          } else {
-            pushRule(item, commonColor);
-          }
+          if (item && typeof item === "object" && !Array.isArray(item)) push(item.value, item.color || commonColor);
+          else push(item, commonColor);
         }
       }
-
-      if (rules.length) return rules;
     }
 
-    const defaults = this._defaultStrongValues(entityId, stateObj);
-    defaults.forEach((v) => pushRule(v, fallbackColor));
-    return rules;
+    return out;
+  }
+
+  _parseNumericRules(config, fallbackColor) {
+    const out = [];
+    const push = (value, color) => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return;
+      out.push({ value: n, color: color ? String(color) : fallbackColor });
+    };
+
+    if (config === null || config === undefined) return out;
+
+    if (typeof config === "number" || (typeof config === "string" && config.trim() !== "")) {
+      push(config, fallbackColor);
+      return out;
+    }
+
+    if (Array.isArray(config)) {
+      for (const item of config) {
+        if (item && typeof item === "object" && !Array.isArray(item)) push(item.value, item.color || fallbackColor);
+        else push(item, fallbackColor);
+      }
+      return out;
+    }
+
+    if (config && typeof config === "object") {
+      const commonColor = config.color || fallbackColor;
+      if (Object.prototype.hasOwnProperty.call(config, "value")) push(config.value, commonColor);
+      for (const key of ["values", "items", "list"]) {
+        const arr = config[key];
+        if (!Array.isArray(arr)) continue;
+        for (const item of arr) {
+          if (item && typeof item === "object" && !Array.isArray(item)) push(item.value, item.color || commonColor);
+          else push(item, commonColor);
+        }
+      }
+    }
+
+    return out;
   }
 
   _defaultStrongValues(entityId, stateObj) {
@@ -850,14 +882,35 @@ class SeagullHistoryCard extends HTMLElement {
   }
 
   _isStrongState(state, rules) {
-    const s = String(state ?? "").toLowerCase();
-    return rules.some((r) => r.value === s);
+    return this._matchStrongState(state, rules).hit;
   }
 
   _getStrongColor(state, rules, fallbackColor) {
+    const m = this._matchStrongState(state, rules);
+    return m.color || fallbackColor;
+  }
+
+  _matchStrongState(state, rules) {
     const s = String(state ?? "").toLowerCase();
-    const hit = rules.find((r) => r.value === s);
-    return hit?.color || fallbackColor;
+    const n = Number(state);
+
+    const stateHit = (rules.state || []).find((r) => r.value === s);
+    if (stateHit) return { hit: true, color: stateHit.color };
+
+    const aboveHit = Number.isFinite(n) ? (rules.above || []).find((r) => n > r.value) : null;
+    if (aboveHit) return { hit: true, color: aboveHit.color };
+
+    const belowHit = Number.isFinite(n) ? (rules.below || []).find((r) => n < r.value) : null;
+    if (belowHit) return { hit: true, color: belowHit.color };
+
+    if ((rules.notState || []).length) {
+      const excluded = new Set((rules.notState || []).map((r) => r.value));
+      if (!excluded.has(s)) {
+        return { hit: true, color: rules.notState[0]?.color };
+      }
+    }
+
+    return { hit: false, color: null };
   }
 
   _toEpochMs(value) {
