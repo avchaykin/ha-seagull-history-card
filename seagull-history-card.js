@@ -610,13 +610,14 @@ class SeagullHistoryCard extends HTMLElement {
     const stateAt = this._stateAtTs(normalized, entityId, ts);
     const nearest = this._nearestStrongEventsSplit(ts, normalized, entityId, showRules, startMs, endMs);
 
-    const pastLabel = nearest.past ? this._formatTs(nearest.past) : "—";
-    const futureLabel = nearest.future ? this._formatTs(nearest.future) : "—";
+    const pastLabel = nearest.past ? `${this._formatTs(nearest.past.ts)} (${nearest.past.state})` : "—";
+    const futureLabel = nearest.future ? `${this._formatTs(nearest.future.ts)} (${nearest.future.state})` : "—";
 
     this._tooltipEl.innerHTML = `
       <div><b>Время:</b> ${this._escapeHtml(this._formatTs(ts))}</div>
       <div><b>Состояние:</b> ${this._escapeHtml(stateAt)}</div>
-      <div><b>Было:</b> ${this._escapeHtml(pastLabel)} &nbsp;&nbsp; <b>Будет:</b> ${this._escapeHtml(futureLabel)}</div>
+      <div><b>Было:</b> ${this._escapeHtml(pastLabel)}</div>
+      <div><b>Будет:</b> ${this._escapeHtml(futureLabel)}</div>
     `;
 
     const cardRect = this._card.getBoundingClientRect();
@@ -674,19 +675,19 @@ class SeagullHistoryCard extends HTMLElement {
   _nearestStrongEventsSplit(ts, normalized, entityId, rules, startMs, endMs) {
     const events = [];
     let prev = this._stateAtTs(normalized, entityId, startMs);
-    if (this._isStrongState(prev, rules)) events.push(startMs);
+    if (this._isStrongState(prev, rules)) events.push({ ts: startMs, state: prev });
     for (const item of normalized) {
       if (item.ts < startMs || item.ts > endMs) continue;
       const becomesStrong = this._isStrongState(item.state, rules) && !this._isStrongState(prev, rules);
-      if (becomesStrong) events.push(item.ts);
+      if (becomesStrong) events.push({ ts: item.ts, state: item.state });
       prev = item.state;
     }
 
     let past = null;
     let future = null;
-    for (const t of events) {
-      if (t <= ts && (past === null || t > past)) past = t;
-      if (t > ts && (future === null || t < future)) future = t;
+    for (const e of events) {
+      if (e.ts <= ts && (past === null || e.ts > past.ts)) past = e;
+      if (e.ts > ts && (future === null || e.ts < future.ts)) future = e;
     }
     return { past, future };
   }
