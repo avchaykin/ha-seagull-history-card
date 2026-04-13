@@ -5,6 +5,8 @@ Custom Lovelace card for Home Assistant to display entity history in compact vis
 Current style:
 - `pearls` — timeline line with pearls where the entity was in an active state (`on` by default).
 
+Planned next styles: bars, density, stepped segments.
+
 ## Installation
 
 Add resources:
