@@ -121,6 +121,8 @@ class SeagullHistoryCard extends HTMLElement {
 
     try {
       let payload = null;
+      let map = new Map();
+
       if (typeof this._hass.callWS === "function") {
         payload = await this._hass.callWS({
           type: "history/history_during_period",
@@ -129,29 +131,45 @@ class SeagullHistoryCard extends HTMLElement {
           entity_ids: entities,
           minimal_response: true,
         });
-      } else {
-        const path = `history/period/${startIso}?filter_entity_id=${encodeURIComponent(entities.join(","))}&end_time=${endIso}&minimal_response`;
-        payload = await this._hass.callApi("GET", path);
+        map = this._normalizeHistoryPayload(payload, entities);
       }
 
-      const map = new Map();
-      if (Array.isArray(payload)) {
-        for (let i = 0; i < payload.length; i += 1) {
-          const seq = payload[i];
-          if (Array.isArray(seq) && seq.length > 0) {
-            const first = seq[0] || {};
-            const entityId = first.entity_id || first.e || entities[i];
-            if (entityId) {
-              map.set(entityId, seq);
-            }
-          }
-        }
+      if (!map.size) {
+        const path = `history/period/${encodeURIComponent(startIso)}?filter_entity_id=${encodeURIComponent(entities.join(","))}&end_time=${encodeURIComponent(endIso)}&minimal_response`;
+        payload = await this._hass.callApi("GET", path);
+        map = this._normalizeHistoryPayload(payload, entities);
       }
+
       this._history = map;
       this._render();
     } catch (err) {
       console.error("[seagull-history-card] failed to fetch history", err);
     }
+  }
+
+  _normalizeHistoryPayload(payload, entities) {
+    const map = new Map();
+
+    if (Array.isArray(payload)) {
+      for (let i = 0; i < payload.length; i += 1) {
+        const seq = payload[i];
+        if (!Array.isArray(seq) || !seq.length) continue;
+        const first = seq[0] || {};
+        const entityId = first.entity_id || first.e || entities[i];
+        if (entityId) map.set(entityId, seq);
+      }
+      return map;
+    }
+
+    if (payload && typeof payload === "object") {
+      for (const [entityId, seq] of Object.entries(payload)) {
+        if (Array.isArray(seq)) {
+          map.set(entityId, seq);
+        }
+      }
+    }
+
+    return map;
   }
 
   _buildRowsHtml(theme, mode) {
