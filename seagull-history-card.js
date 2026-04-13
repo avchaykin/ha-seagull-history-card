@@ -1,4 +1,4 @@
-const SEAGULL_HISTORY_CARD_VERSION = "0.1.0";
+const SEAGULL_HISTORY_CARD_VERSION = "0.1.1";
 const SEAGULL_HISTORY_CARD_COMMIT = "dev";
 
 const SEAGULL_HISTORY_THEME_DEFAULT = {
@@ -6,7 +6,6 @@ const SEAGULL_HISTORY_THEME_DEFAULT = {
   palette: {
     card_border: { day: "#aaaaaa", night: "#64748b" },
     card_bg: { day: "#eeeeee", night: "#0f172a" },
-    card_icon: { day: "#2233aa44", night: "#93c5fd55" },
     text_color: { day: "inherit", night: "#e2e8f0" },
     line_color: { day: "#94a3b8", night: "#475569" },
     pearl_color: { day: "#f59e0b", night: "#f59e0b" },
@@ -18,20 +17,16 @@ const SEAGULL_HISTORY_THEME_DEFAULT = {
     border_color: "$card_border",
     background_color: "$card_bg",
     background_opacity: 0.45,
-    icon: "mdi:chart-timeline-variant",
-    icon_color: "$card_icon",
-    icon_size: 76,
     font_url: "https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap",
   },
   pearls: {
-    line_height: 10,
+    line_height: 2,
     line_radius: 999,
     line_color: "$line_color",
     pearl_size: 12,
     pearl_color: "$pearl_color",
     pearl_border_width: 2,
     pearl_border_color: "$pearl_border",
-    sample_points: 36,
   },
 };
 
@@ -80,10 +75,7 @@ class SeagullHistoryCard extends HTMLElement {
       this._card = document.createElement("ha-card");
       this._content = document.createElement("div");
       this._content.className = "seagull-history-card-content";
-      this._bgIcon = document.createElement("ha-icon");
-      this._bgIcon.className = "seagull-history-card-bg-icon";
       this._card.appendChild(this._content);
-      this._card.appendChild(this._bgIcon);
       this.appendChild(this._card);
     }
 
@@ -92,14 +84,9 @@ class SeagullHistoryCard extends HTMLElement {
     this._activeTheme = { theme, mode };
 
     this._applyCardStyles(theme, mode);
-    this._bgIcon.icon = this._config.icon || theme.card.icon;
 
     const rowsHtml = this._buildRowsHtml(theme, mode);
     this._content.innerHTML = `
-      <div class="seagull-history-head">
-        <div class="seagull-history-title">${this._escapeHtml(this._config.title || "History")}</div>
-        <div class="seagull-history-period">${this._escapeHtml(this._config.period || "12h")}</div>
-      </div>
       <div class="seagull-history-rows">${rowsHtml}</div>
     `;
   }
@@ -128,14 +115,31 @@ class SeagullHistoryCard extends HTMLElement {
     const endIso = end.toISOString();
 
     try {
-      const path = `history/period/${encodeURIComponent(startIso)}?filter_entity_id=${encodeURIComponent(entities.join(","))}&end_time=${encodeURIComponent(endIso)}&minimal_response`;
-      const payload = await this._hass.callApi("GET", path);
+      let payload = null;
+      if (typeof this._hass.callWS === "function") {
+        payload = await this._hass.callWS({
+          type: "history/history_during_period",
+          start_time: startIso,
+          end_time: endIso,
+          filter_entity_id: entities,
+          minimal_response: true,
+          no_attributes: true,
+        });
+      } else {
+        const path = `history/period/${startIso}?filter_entity_id=${encodeURIComponent(entities.join(","))}&end_time=${endIso}&minimal_response`;
+        payload = await this._hass.callApi("GET", path);
+      }
 
       const map = new Map();
       if (Array.isArray(payload)) {
-        for (const seq of payload) {
-          if (Array.isArray(seq) && seq.length > 0 && seq[0]?.entity_id) {
-            map.set(seq[0].entity_id, seq);
+        for (let i = 0; i < payload.length; i += 1) {
+          const seq = payload[i];
+          if (Array.isArray(seq) && seq.length > 0) {
+            const first = seq[0] || {};
+            const entityId = first.entity_id || first.e || entities[i];
+            if (entityId) {
+              map.set(entityId, seq);
+            }
           }
         }
       }
@@ -167,11 +171,11 @@ class SeagullHistoryCard extends HTMLElement {
 
         return `
           <div class="seagull-history-row">
-            <ha-icon class="seagull-history-row-icon" icon="${this._escapeHtml(icon)}"></ha-icon>
-            <div class="seagull-history-row-main">
+            <div class="seagull-history-row-line">
+              <ha-icon class="seagull-history-row-icon" icon="${this._escapeHtml(icon)}"></ha-icon>
               ${chartHtml}
-              <div class="seagull-history-row-name">${this._escapeHtml(name)}</div>
             </div>
+            <div class="seagull-history-row-name">${this._escapeHtml(name)}</div>
           </div>
         `;
       })
@@ -183,43 +187,33 @@ class SeagullHistoryCard extends HTMLElement {
     const activeStates = (rowCfg.active_states || this._config.active_states || ACTIVE_STATES_DEFAULT).map((s) => String(s));
 
     const periodMs = this._parsePeriodToMs(this._config.period || "12h");
-    const pointsCfg = Number(rowCfg.sample_points ?? this._config.sample_points ?? theme.pearls.sample_points);
-    const points = Number.isFinite(pointsCfg) ? Math.max(6, Math.min(240, Math.floor(pointsCfg))) : 36;
-    const stepMs = periodMs / (points - 1);
     const endMs = Date.now();
     const startMs = endMs - periodMs;
 
     const normalized = history
       .map((it) => ({
-        state: String(it.state ?? ""),
-        ts: new Date(it.last_changed || it.last_updated || it.lu || 0).getTime(),
+        state: String(it.state ?? it.s ?? ""),
+        ts: new Date(it.last_changed || it.last_updated || it.lu || it.lc || 0).getTime(),
       }))
       .filter((it) => Number.isFinite(it.ts))
       .sort((a, b) => a.ts - b.ts);
 
-    const isActiveAt = (ts) => {
-      let state = null;
-      for (const item of normalized) {
-        if (item.ts <= ts) state = item.state;
-        else break;
-      }
-      if (state == null) {
-        const current = this._hass.states[entityId]?.state;
-        state = String(current ?? "");
-      }
-      return activeStates.includes(state);
-    };
-
     const pearls = [];
-    for (let i = 0; i < points; i++) {
-      const ts = startMs + i * stepMs;
-      if (!isActiveAt(ts)) continue;
-      const x = (i / (points - 1)) * 100;
+    let prevState = null;
+    for (const item of normalized) {
+      const isActive = activeStates.includes(item.state);
+      const wasActive = prevState != null && activeStates.includes(prevState);
+      prevState = item.state;
+
+      if (!isActive || wasActive) continue;
+      if (item.ts < startMs || item.ts > endMs) continue;
+
+      const x = ((item.ts - startMs) / periodMs) * 100;
       pearls.push(`<span class="seagull-history-pearl" style="left:${x.toFixed(3)}%"></span>`);
     }
 
     const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
-    const lineHeight = Number(theme.pearls.line_height) || 10;
+    const lineHeight = Number(theme.pearls.line_height) || 2;
     const lineRadius = Number(theme.pearls.line_radius) || 999;
     const pearlSize = Number(theme.pearls.pearl_size) || 12;
     const pearlColor = this._resolveColor(theme.pearls.pearl_color, theme, mode);
@@ -237,12 +231,10 @@ class SeagullHistoryCard extends HTMLElement {
     const cardBg = this._resolveColor(theme.card.background_color, theme, mode);
     const cardBorder = this._resolveColor(theme.card.border_color, theme, mode);
     const textColor = this._resolveColor(theme.palette.text_color, theme, mode);
-    const iconColor = this._resolveColor(theme.card.icon_color, theme, mode);
 
     const opacity = Number(this._config.background_opacity ?? theme.card.background_opacity ?? 0.45);
     const borderWidth = Number(this._config.border_width ?? theme.card.border_width ?? 0);
     const borderRadius = Number(this._config.border_radius ?? theme.card.border_radius ?? 16);
-    const iconSize = Number(this._config.icon_size ?? theme.card.icon_size ?? 76);
 
     this._card.style.borderRadius = `${borderRadius}px`;
     this._card.style.border = `${borderWidth}px solid ${cardBorder}`;
@@ -254,14 +246,6 @@ class SeagullHistoryCard extends HTMLElement {
     this._content.style.zIndex = "2";
     this._content.style.padding = "12px";
     this._content.style.color = textColor;
-
-    this._bgIcon.style.position = "absolute";
-    this._bgIcon.style.right = "8px";
-    this._bgIcon.style.top = "8px";
-    this._bgIcon.style.width = `${iconSize}px`;
-    this._bgIcon.style.height = `${iconSize}px`;
-    this._bgIcon.style.color = iconColor;
-    this._bgIcon.style.zIndex = "1";
 
     this._injectStyles(theme, mode);
     this._ensureFont(theme.card.font_url);
@@ -277,15 +261,12 @@ class SeagullHistoryCard extends HTMLElement {
     const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
 
     this._styleEl.textContent = `
-      .seagull-history-head { display:flex; justify-content:space-between; gap:8px; align-items:baseline; margin-bottom:10px; }
-      .seagull-history-title { font-size:15px; font-weight:600; color:${textColor}; }
-      .seagull-history-period { font-size:12px; opacity:0.8; }
       .seagull-history-rows { display:flex; flex-direction:column; gap:10px; }
-      .seagull-history-row { display:flex; gap:8px; align-items:flex-start; }
-      .seagull-history-row-icon { width:20px; height:20px; color:${textColor}; opacity:0.9; margin-top:2px; flex:0 0 auto; }
-      .seagull-history-row-main { flex:1 1 auto; min-width:0; }
+      .seagull-history-row { display:flex; flex-direction:column; gap:6px; }
+      .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
+      .seagull-history-row-icon { width:20px; height:20px; color:${textColor}; opacity:0.9; flex:0 0 auto; }
       .seagull-history-line { width:100%; position:relative; background:${lineColor}; }
-      .seagull-history-line.pearls { min-height:8px; margin-top:2px; }
+      .seagull-history-line.pearls { min-height:2px; }
       .seagull-history-pearl {
         position:absolute;
         top:50%;
@@ -297,7 +278,7 @@ class SeagullHistoryCard extends HTMLElement {
         border:var(--pearl-border-width, 2px) solid var(--pearl-border-color, #ffffff);
         box-sizing:border-box;
       }
-      .seagull-history-row-name { margin-top:6px; font-size:12px; line-height:1.2; opacity:0.95; }
+      .seagull-history-row-name { margin-left:28px; font-size:12px; line-height:1.2; opacity:0.95; }
     `;
   }
 

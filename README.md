@@ -48,8 +48,6 @@ Card-level visual params (also overridable via `theme.card`):
 - `border_radius`
 - `border_width`
 - `background_opacity`
-- `icon`
-- `icon_size`
 
 ## Local auto-deploy on commit
 
