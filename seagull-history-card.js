@@ -182,7 +182,7 @@ class SeagullHistoryCard extends HTMLElement {
         if (!entityId) return "";
 
         const stateObj = this._hass.states[entityId];
-        const icon = rowCfg.icon || stateObj?.attributes?.icon || "mdi:help-circle-outline";
+        const icon = this._resolveEntityIcon(rowCfg, stateObj, entityId);
         const name = rowCfg.name || stateObj?.attributes?.friendly_name || entityId;
 
         let chartHtml = `<div class="seagull-history-line" data-entity="${this._escapeHtml(entityId)}"></div>`;
@@ -201,6 +201,53 @@ class SeagullHistoryCard extends HTMLElement {
         `;
       })
       .join("");
+  }
+
+  _resolveEntityIcon(rowCfg, stateObj, entityId) {
+    if (rowCfg?.icon) return String(rowCfg.icon);
+
+    const attrIcon = stateObj?.attributes?.icon;
+    if (typeof attrIcon === "string" && attrIcon.trim()) return attrIcon;
+
+    const domain = String(entityId || "").split(".")[0] || "";
+    const state = String(stateObj?.state ?? "").toLowerCase();
+    const deviceClass = String(stateObj?.attributes?.device_class || "").toLowerCase();
+
+    if (domain === "binary_sensor") {
+      const isOn = state === "on";
+      const byClass = {
+        door: isOn ? "mdi:door-open" : "mdi:door-closed",
+        window: isOn ? "mdi:window-open" : "mdi:window-closed",
+        opening: isOn ? "mdi:garage-open" : "mdi:garage",
+        garage_door: isOn ? "mdi:garage-open" : "mdi:garage",
+        lock: isOn ? "mdi:lock-open-variant" : "mdi:lock",
+        motion: isOn ? "mdi:motion-sensor" : "mdi:motion-sensor-off",
+        occupancy: isOn ? "mdi:home-account" : "mdi:home-outline",
+      };
+      return byClass[deviceClass] || (isOn ? "mdi:check-circle" : "mdi:circle-outline");
+    }
+
+    if (domain === "lock") {
+      return state === "unlocked" ? "mdi:lock-open-variant" : "mdi:lock";
+    }
+
+    if (domain === "cover") {
+      return state === "open" || state === "opening" ? "mdi:blinds-open" : "mdi:blinds";
+    }
+
+    if (domain === "sensor") {
+      if (["door", "window", "opening", "garage_door", "lock"].includes(deviceClass)) {
+        if (state === "open") {
+          return deviceClass === "window" ? "mdi:window-open" : deviceClass === "lock" ? "mdi:lock-open-variant" : "mdi:door-open";
+        }
+        if (state === "unlocked") return "mdi:lock-open-variant";
+        return deviceClass === "window" ? "mdi:window-closed" : deviceClass === "lock" ? "mdi:lock" : "mdi:door-closed";
+      }
+    }
+
+    if (domain === "light") return state === "on" ? "mdi:lightbulb" : "mdi:lightbulb-off";
+
+    return "mdi:help-circle-outline";
   }
 
   _buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode) {
