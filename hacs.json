@@ -1,0 +1,6 @@
+{
+  "name": "Seagull History Card",
+  "filename": "seagull-history-card.js",
+  "render_readme": true,
+  "homeassistant": "2024.1.0"
+}

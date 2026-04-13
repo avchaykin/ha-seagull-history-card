@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -u
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT="$ROOT_DIR/scripts/deploy-to-ha.sh"
+
+if [[ ! -x "$SCRIPT" ]]; then
+  echo "[post-commit] deploy script is missing or not executable: $SCRIPT"
+  exit 0
+fi
+
+echo "[post-commit] Auto-deploying seagull-history-card.js to HA..."
+if ! "$SCRIPT"; then
+  echo "[post-commit] WARNING: deploy failed (commit kept)."
+fi
