@@ -42,11 +42,19 @@ entities:
   - `icon` (optional)
   - `show_value` (optional)
     - string: `show_value: on`
-    - list/object with color:
+    - common color for multiple values:
       ```yaml
       show_value:
         values: [open, unlocked]
         color: red
+      ```
+    - per-value color:
+      ```yaml
+      show_value:
+        - value: open
+          color: red
+        - value: unlocked
+          color: blue
       ```
   - default strong values (when `show_value` omitted):
     - `lock.*` -> `unlocked`

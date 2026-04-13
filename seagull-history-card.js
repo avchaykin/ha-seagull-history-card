@@ -220,29 +220,72 @@ class SeagullHistoryCard extends HTMLElement {
     const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
     const showRules = this._normalizeShowValueRules(rowCfg.show_value ?? this._config.show_value, entityId, stateObj, lineColor);
 
-    const pearls = [];
+    const marks = [];
     let stateAtStart = String(this._hass.states[entityId]?.state ?? "");
     for (const item of normalized) {
       if (item.ts <= startMs) stateAtStart = item.state;
       else break;
     }
 
-    if (this._isStrongState(stateAtStart, showRules)) {
-      const c = this._getStrongColor(stateAtStart, showRules, lineColor);
-      pearls.push(`<span class="seagull-history-pearl" style="left:0%;background:${this._escapeHtml(c)};"></span>`);
-    }
-
+    const intervals = [];
+    let activeStart = this._isStrongState(stateAtStart, showRules) ? startMs : null;
     let prevState = stateAtStart;
+
     for (const item of normalized) {
       if (item.ts < startMs || item.ts > endMs) continue;
       const currState = item.state;
-      const becomesStrong = this._isStrongState(currState, showRules) && !this._isStrongState(prevState, showRules);
-      if (becomesStrong) {
-        const x = ((item.ts - startMs) / periodMs) * 100;
-        const c = this._getStrongColor(currState, showRules, lineColor);
-        pearls.push(`<span class="seagull-history-pearl" style="left:${x.toFixed(3)}%;background:${this._escapeHtml(c)};"></span>`);
+
+      const prevStrong = this._isStrongState(prevState, showRules);
+      const currStrong = this._isStrongState(currState, showRules);
+      const prevColor = this._getStrongColor(prevState, showRules, lineColor);
+      const currColor = this._getStrongColor(currState, showRules, lineColor);
+
+      if (prevStrong && (!currStrong || currColor !== prevColor)) {
+        intervals.push({
+          from: activeStart ?? startMs,
+          to: item.ts,
+          color: prevColor,
+        });
+        activeStart = null;
       }
+
+      if (!prevStrong && currStrong) {
+        activeStart = item.ts;
+      } else if (prevStrong && currStrong && currColor !== prevColor) {
+        activeStart = item.ts;
+      }
+
       prevState = currState;
+    }
+
+    if (this._isStrongState(prevState, showRules)) {
+      intervals.push({
+        from: activeStart ?? startMs,
+        to: endMs,
+        color: this._getStrongColor(prevState, showRules, lineColor),
+      });
+    }
+
+    for (const itv of intervals) {
+      const from = Math.max(startMs, Math.min(endMs, itv.from));
+      const to = Math.max(startMs, Math.min(endMs, itv.to));
+      if (to < from) continue;
+
+      const left = ((from - startMs) / periodMs) * 100;
+      const right = ((to - startMs) / periodMs) * 100;
+      const width = Math.max(0, right - left);
+
+      if (width <= 0.25) {
+        marks.push(`<span class="seagull-history-pearl" style="left:${left.toFixed(3)}%;background:${this._escapeHtml(itv.color)};"></span>`);
+        continue;
+      }
+
+      const edgeLeft = from <= startMs + 1;
+      const edgeRight = to >= endMs - 1;
+      const cls = `seagull-history-segment${edgeLeft ? " edge-left" : ""}${edgeRight ? " edge-right" : ""}`;
+      marks.push(
+        `<span class="${cls}" style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%;background:${this._escapeHtml(itv.color)};"></span>`,
+      );
     }
 
     const lineHeight = Number(theme.pearls.line_height) || 2;
@@ -252,7 +295,7 @@ class SeagullHistoryCard extends HTMLElement {
 
     return `
       <div class="seagull-history-line pearls" style="height:${lineHeight}px;border-radius:${lineRadius}px;background:${lineColor};--pearl-size:${pearlSize}px;--pearl-color:${pearlColor};">
-        ${pearls.join("")}
+        ${marks.join("")}
       </div>
     `;
   }
@@ -385,6 +428,22 @@ class SeagullHistoryCard extends HTMLElement {
         outline:none;
         box-shadow:none;
         box-sizing:border-box;
+      }
+      .seagull-history-segment {
+        position:absolute;
+        top:50%;
+        transform:translateY(-50%);
+        height:var(--pearl-size, 12px);
+        border-radius:calc(var(--pearl-size, 12px) / 2);
+        box-sizing:border-box;
+      }
+      .seagull-history-segment.edge-left {
+        border-top-left-radius:0;
+        border-bottom-left-radius:0;
+      }
+      .seagull-history-segment.edge-right {
+        border-top-right-radius:0;
+        border-bottom-right-radius:0;
       }
       .seagull-history-row-name { margin-left:28px; font-size:12px; line-height:1.2; opacity:0.95; }
       .seagull-history-axis-wrap { margin-left:28px; margin-top:6px; }
