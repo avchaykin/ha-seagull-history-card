@@ -20,7 +20,7 @@ const SEAGULL_HISTORY_THEME_DEFAULT = {
     font_url: "https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap",
   },
   pearls: {
-    line_height: 2,
+    line_height: 1,
     line_radius: 999,
     line_color: "$line_color",
     pearl_size: 12,
@@ -92,6 +92,7 @@ class SeagullHistoryCard extends HTMLElement {
     `;
 
     this._bindRowActions();
+    this._bindLineHover();
   }
 
   async _maybeFetchHistory() {
@@ -184,7 +185,7 @@ class SeagullHistoryCard extends HTMLElement {
         const icon = rowCfg.icon || stateObj?.attributes?.icon || "mdi:help-circle-outline";
         const name = rowCfg.name || stateObj?.attributes?.friendly_name || entityId;
 
-        let chartHtml = `<div class="seagull-history-line"></div>`;
+        let chartHtml = `<div class="seagull-history-line" data-entity="${this._escapeHtml(entityId)}"></div>`;
         if (style === "pearls") {
           chartHtml = this._buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode);
         }
@@ -302,7 +303,7 @@ class SeagullHistoryCard extends HTMLElement {
     }
 
     return `
-      <div class="seagull-history-line pearls" style="height:${lineHeight}px;border-radius:${lineRadius}px;background:${lineColor};--pearl-size:${pearlSize}px;--pearl-color:${pearlColor};">
+      <div class="seagull-history-line pearls" data-entity="${this._escapeHtml(entityId)}" style="height:${lineHeight}px;border-radius:${lineRadius}px;background:${lineColor};--pearl-size:${pearlSize}px;--pearl-color:${pearlColor};">
         ${marks.join("")}
       </div>
     `;
@@ -472,6 +473,21 @@ class SeagullHistoryCard extends HTMLElement {
       .seagull-history-axis-label.edge-right {
         transform:translateX(-100%);
       }
+      .seagull-history-tooltip {
+        position:absolute;
+        z-index:20;
+        pointer-events:none;
+        background:rgba(15, 23, 42, 0.94);
+        color:#f8fafc;
+        border-radius:8px;
+        padding:8px 10px;
+        font-size:11px;
+        line-height:1.35;
+        box-shadow:0 6px 20px rgba(2, 6, 23, 0.35);
+        max-width:240px;
+        display:none;
+      }
+      .seagull-history-tooltip b { font-weight:700; }
     `;
   }
 
@@ -500,6 +516,141 @@ class SeagullHistoryCard extends HTMLElement {
         composed: true,
       }),
     );
+  }
+
+  _bindLineHover() {
+    this._ensureTooltip();
+    const lines = this._content?.querySelectorAll?.(".seagull-history-line[data-entity]") || [];
+    for (const line of lines) {
+      const entityId = line.getAttribute("data-entity");
+      if (!entityId) continue;
+
+      line.onmousemove = (ev) => this._showLineTooltip(ev, line, entityId);
+      line.onmouseleave = () => this._hideTooltip();
+    }
+  }
+
+  _ensureTooltip() {
+    if (this._tooltipEl) return;
+    this._tooltipEl = document.createElement("div");
+    this._tooltipEl.className = "seagull-history-tooltip";
+    this._card.appendChild(this._tooltipEl);
+  }
+
+  _showLineTooltip(ev, lineEl, entityId) {
+    if (!this._tooltipEl || !this._hass) return;
+
+    const rect = lineEl.getBoundingClientRect();
+    if (!rect.width) return;
+
+    const x = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
+    const ratio = x / rect.width;
+
+    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const endMs = Date.now();
+    const startMs = endMs - periodMs;
+    const ts = startMs + ratio * periodMs;
+
+    const rowCfg = this._getEntityRowConfig(entityId);
+    const stateObj = this._hass.states[entityId];
+    const lineColor = this._resolveColor(this._activeTheme?.theme?.pearls?.line_color, this._activeTheme?.theme, this._activeTheme?.mode) || "#94a3b8";
+    const showRules = this._normalizeShowValueRules(rowCfg.show_value ?? this._config.show_value, entityId, stateObj, lineColor);
+    const normalized = this._getNormalizedHistory(entityId);
+
+    const stateAt = this._stateAtTs(normalized, entityId, ts);
+    const nearest = this._nearestStrongEvent(ts, normalized, entityId, showRules, startMs, endMs);
+
+    const nearestLabel = nearest
+      ? `${this._formatTs(nearest.ts)} (${nearest.direction === "past" ? "было" : "будет"})`
+      : "нет в выбранном периоде";
+
+    this._tooltipEl.innerHTML = `
+      <div><b>Время:</b> ${this._escapeHtml(this._formatTs(ts))}</div>
+      <div><b>Состояние:</b> ${this._escapeHtml(stateAt)}</div>
+      <div><b>Ближайшее событие:</b> ${this._escapeHtml(nearestLabel)}</div>
+    `;
+
+    const cardRect = this._card.getBoundingClientRect();
+    const offsetX = ev.clientX - cardRect.left;
+    const offsetY = ev.clientY - cardRect.top;
+
+    this._tooltipEl.style.display = "block";
+    const ttRect = this._tooltipEl.getBoundingClientRect();
+
+    let left = offsetX + 12;
+    let top = offsetY - ttRect.height - 10;
+
+    if (left + ttRect.width > cardRect.width - 6) left = cardRect.width - ttRect.width - 6;
+    if (left < 6) left = 6;
+    if (top < 6) top = offsetY + 12;
+
+    this._tooltipEl.style.left = `${left}px`;
+    this._tooltipEl.style.top = `${top}px`;
+  }
+
+  _hideTooltip() {
+    if (!this._tooltipEl) return;
+    this._tooltipEl.style.display = "none";
+  }
+
+  _getEntityRowConfig(entityId) {
+    const entities = this._config?.entities || [];
+    for (const row of entities) {
+      const rowCfg = typeof row === "string" ? { entity: row } : row || {};
+      if (rowCfg.entity === entityId) return rowCfg;
+    }
+    return { entity: entityId };
+  }
+
+  _getNormalizedHistory(entityId) {
+    const history = this._history?.get(entityId) || [];
+    return history
+      .map((it) => ({
+        state: String(it.state ?? it.s ?? ""),
+        ts: this._toEpochMs(it.last_changed || it.last_updated || it.lu || it.lc || 0),
+      }))
+      .filter((it) => Number.isFinite(it.ts))
+      .sort((a, b) => a.ts - b.ts);
+  }
+
+  _stateAtTs(normalized, entityId, ts) {
+    let state = String(this._hass.states[entityId]?.state ?? "");
+    for (const item of normalized) {
+      if (item.ts <= ts) state = item.state;
+      else break;
+    }
+    return state;
+  }
+
+  _nearestStrongEvent(ts, normalized, entityId, rules, startMs, endMs) {
+    const events = [];
+    let prev = this._stateAtTs(normalized, entityId, startMs);
+    if (this._isStrongState(prev, rules)) events.push(startMs);
+    for (const item of normalized) {
+      if (item.ts < startMs || item.ts > endMs) continue;
+      const becomesStrong = this._isStrongState(item.state, rules) && !this._isStrongState(prev, rules);
+      if (becomesStrong) events.push(item.ts);
+      prev = item.state;
+    }
+
+    let best = null;
+    for (const t of events) {
+      const dist = Math.abs(t - ts);
+      if (!best || dist < best.dist) {
+        best = { ts: t, dist, direction: t <= ts ? "past" : "future" };
+      }
+    }
+    return best;
+  }
+
+  _formatTs(ts) {
+    const d = new Date(ts);
+    return d.toLocaleString(undefined, {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   _normalizeTheme(custom) {
