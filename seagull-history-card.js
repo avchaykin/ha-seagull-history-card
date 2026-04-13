@@ -1,4 +1,4 @@
-const SEAGULL_HISTORY_CARD_VERSION = "0.1.2";
+const SEAGULL_HISTORY_CARD_VERSION = "0.1.3";
 const SEAGULL_HISTORY_CARD_COMMIT = "dev";
 
 const SEAGULL_HISTORY_THEME_DEFAULT = {
@@ -123,7 +123,7 @@ class SeagullHistoryCard extends HTMLElement {
           type: "history/history_during_period",
           start_time: startIso,
           end_time: endIso,
-          filter_entity_id: entities,
+          entity_ids: entities,
           minimal_response: true,
           no_attributes: true,
         });
