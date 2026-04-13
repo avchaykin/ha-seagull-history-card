@@ -24,8 +24,8 @@ const SEAGULL_HISTORY_THEME_DEFAULT = {
     line_radius: 999,
     line_color: "$line_color",
     pearl_size: 12,
-    pearl_color: "$pearl_color",
-    pearl_border_width: 2,
+    pearl_color: "$line_color",
+    pearl_border_width: 0,
     pearl_border_color: "$pearl_border",
   },
 };
@@ -94,6 +94,8 @@ class SeagullHistoryCard extends HTMLElement {
       </div>
       ${axis.labelsHtml}
     `;
+
+    this._bindRowActions();
   }
 
   async _maybeFetchHistory() {
@@ -192,7 +194,7 @@ class SeagullHistoryCard extends HTMLElement {
         }
 
         return `
-          <div class="seagull-history-row">
+          <div class="seagull-history-row" data-entity="${this._escapeHtml(entityId)}" role="button" tabindex="0">
             <div class="seagull-history-row-line">
               <ha-icon class="seagull-history-row-icon" icon="${this._escapeHtml(icon)}"></ha-icon>
               ${chartHtml}
@@ -368,6 +370,7 @@ class SeagullHistoryCard extends HTMLElement {
       }
       .seagull-history-rows { position:relative; z-index:1; display:flex; flex-direction:column; gap:10px; }
       .seagull-history-row { display:flex; flex-direction:column; gap:6px; }
+      .seagull-history-row { cursor:pointer; }
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
       .seagull-history-row-icon { width:20px; height:20px; color:${textColor}; opacity:0.9; flex:0 0 auto; }
       .seagull-history-line { width:100%; position:relative; background:${lineColor}; }
@@ -380,7 +383,7 @@ class SeagullHistoryCard extends HTMLElement {
         height:var(--pearl-size, 12px);
         border-radius:50%;
         background:var(--pearl-color, #f59e0b);
-        border:var(--pearl-border-width, 2px) solid var(--pearl-border-color, #ffffff);
+        border:var(--pearl-border-width, 0px) solid var(--pearl-border-color, transparent);
         box-sizing:border-box;
       }
       .seagull-history-row-name { margin-left:28px; font-size:12px; line-height:1.2; opacity:0.95; }
@@ -403,6 +406,33 @@ class SeagullHistoryCard extends HTMLElement {
         transform:translateX(-100%);
       }
     `;
+  }
+
+  _bindRowActions() {
+    const rows = this._content?.querySelectorAll?.(".seagull-history-row[data-entity]") || [];
+    for (const row of rows) {
+      const entityId = row.getAttribute("data-entity");
+      if (!entityId) continue;
+
+      row.onclick = () => this._openMoreInfo(entityId);
+      row.onkeydown = (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          this._openMoreInfo(entityId);
+        }
+      };
+    }
+  }
+
+  _openMoreInfo(entityId) {
+    if (!entityId) return;
+    this.dispatchEvent(
+      new CustomEvent("hass-more-info", {
+        detail: { entityId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   _normalizeTheme(custom) {
