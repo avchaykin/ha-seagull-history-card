@@ -1,4 +1,4 @@
-const SEAGULL_HISTORY_CARD_VERSION = "0.1.1";
+const SEAGULL_HISTORY_CARD_VERSION = "0.1.2";
 const SEAGULL_HISTORY_CARD_COMMIT = "dev";
 
 const SEAGULL_HISTORY_THEME_DEFAULT = {
@@ -86,8 +86,10 @@ class SeagullHistoryCard extends HTMLElement {
     this._applyCardStyles(theme, mode);
 
     const rowsHtml = this._buildRowsHtml(theme, mode);
+    const axisHtml = this._buildTimeAxisHtml();
     this._content.innerHTML = `
       <div class="seagull-history-rows">${rowsHtml}</div>
+      ${axisHtml}
     `;
   }
 
@@ -227,6 +229,62 @@ class SeagullHistoryCard extends HTMLElement {
     `;
   }
 
+  _buildTimeAxisHtml() {
+    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const endMs = Date.now();
+    const startMs = endMs - periodMs;
+    const { stepMs, format } = this._getAxisStep(periodMs);
+
+    if (!stepMs || stepMs <= 0 || stepMs >= periodMs) return "";
+
+    const firstTick = Math.ceil(startMs / stepMs) * stepMs;
+    const ticks = [];
+
+    for (let ts = firstTick; ts <= endMs; ts += stepMs) {
+      const x = ((ts - startMs) / periodMs) * 100;
+      if (x < 0 || x > 100) continue;
+      const label = this._formatAxisLabel(ts, format);
+
+      let labelClass = "";
+      if (x < 3) labelClass = " edge-left";
+      else if (x > 97) labelClass = " edge-right";
+
+      ticks.push(`
+        <div class="seagull-history-axis-tick" style="left:${x.toFixed(3)}%"></div>
+        <div class="seagull-history-axis-label${labelClass}" style="left:${x.toFixed(3)}%">${this._escapeHtml(label)}</div>
+      `);
+    }
+
+    return `
+      <div class="seagull-history-axis-wrap">
+        <div class="seagull-history-axis">${ticks.join("")}</div>
+      </div>
+    `;
+  }
+
+  _getAxisStep(periodMs) {
+    const H = 3600000;
+    const D = 86400000;
+
+    if (periodMs <= 2 * H) return { stepMs: 15 * 60000, format: "HH:mm" };
+    if (periodMs <= 12 * H) return { stepMs: 1 * H, format: "HH" };
+    if (periodMs <= 24 * H) return { stepMs: 2 * H, format: "HH" };
+    if (periodMs <= 2 * D) return { stepMs: 6 * H, format: "HH" };
+    if (periodMs <= 7 * D) return { stepMs: 1 * D, format: "DD/MM" };
+    return { stepMs: 7 * D, format: "DD/MM" };
+  }
+
+  _formatAxisLabel(ts, format) {
+    const d = new Date(ts);
+    if (format === "HH:mm") {
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    }
+    if (format === "DD/MM") {
+      return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+    return String(d.getHours()).padStart(2, "0");
+  }
+
   _applyCardStyles(theme, mode) {
     const cardBg = this._resolveColor(theme.card.background_color, theme, mode);
     const cardBorder = this._resolveColor(theme.card.border_color, theme, mode);
@@ -279,6 +337,33 @@ class SeagullHistoryCard extends HTMLElement {
         box-sizing:border-box;
       }
       .seagull-history-row-name { margin-left:28px; font-size:12px; line-height:1.2; opacity:0.95; }
+      .seagull-history-axis-wrap { margin-left:28px; margin-top:4px; }
+      .seagull-history-axis { position:relative; height:22px; }
+      .seagull-history-axis-tick {
+        position:absolute;
+        top:0;
+        width:1px;
+        height:8px;
+        background:${lineColor};
+        transform:translateX(-0.5px);
+        opacity:0.85;
+      }
+      .seagull-history-axis-label {
+        position:absolute;
+        top:10px;
+        transform:translateX(-50%);
+        font-size:10px;
+        line-height:1;
+        color:${textColor};
+        opacity:0.8;
+        white-space:nowrap;
+      }
+      .seagull-history-axis-label.edge-left {
+        transform:translateX(0%);
+      }
+      .seagull-history-axis-label.edge-right {
+        transform:translateX(-100%);
+      }
     `;
   }
 
