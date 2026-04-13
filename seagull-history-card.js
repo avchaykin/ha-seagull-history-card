@@ -25,8 +25,6 @@ const SEAGULL_HISTORY_THEME_DEFAULT = {
     line_color: "$line_color",
     pearl_size: 12,
     pearl_color: "$line_color",
-    pearl_border_width: 0,
-    pearl_border_color: "$pearl_border",
   },
 };
 
@@ -249,11 +247,9 @@ class SeagullHistoryCard extends HTMLElement {
     const lineRadius = Number(theme.pearls.line_radius) || 999;
     const pearlSize = Number(theme.pearls.pearl_size) || 12;
     const pearlColor = this._resolveColor(theme.pearls.pearl_color, theme, mode);
-    const pearlBorderWidth = Number(theme.pearls.pearl_border_width) || 2;
-    const pearlBorderColor = this._resolveColor(theme.pearls.pearl_border_color, theme, mode);
 
     return `
-      <div class="seagull-history-line pearls" style="height:${lineHeight}px;border-radius:${lineRadius}px;background:${lineColor};--pearl-size:${pearlSize}px;--pearl-color:${pearlColor};--pearl-border-width:${pearlBorderWidth}px;--pearl-border-color:${pearlBorderColor};">
+      <div class="seagull-history-line pearls" style="height:${lineHeight}px;border-radius:${lineRadius}px;background:${lineColor};--pearl-size:${pearlSize}px;--pearl-color:${pearlColor};">
         ${pearls.join("")}
       </div>
     `;
@@ -383,7 +379,9 @@ class SeagullHistoryCard extends HTMLElement {
         height:var(--pearl-size, 12px);
         border-radius:50%;
         background:var(--pearl-color, #f59e0b);
-        border:var(--pearl-border-width, 0px) solid var(--pearl-border-color, transparent);
+        border:none;
+        outline:none;
+        box-shadow:none;
         box-sizing:border-box;
       }
       .seagull-history-row-name { margin-left:28px; font-size:12px; line-height:1.2; opacity:0.95; }
