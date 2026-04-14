@@ -87,6 +87,7 @@ class SeagullHistoryCard extends HTMLElement {
     this._content.innerHTML = `
       <div class="seagull-history-chart">
         <div class="seagull-history-grid">${axis.gridTicksHtml}</div>
+        <div class="seagull-history-background-layer">${bgContext.overlayHtml || ""}</div>
         <div class="seagull-history-rows">${rowsHtml}</div>
       </div>
       ${axis.labelsHtml}
@@ -319,9 +320,6 @@ class SeagullHistoryCard extends HTMLElement {
     const showRules = this._normalizeStrongRules(rowCfg, this._config, entityId, stateObj, lineColor);
 
     const marks = [];
-    if (bgContext?.overlayHtml) {
-      marks.push(bgContext.overlayHtml);
-    }
     const stateAtStart = this._stateAtTs(normalized, entityId, startMs, { preferFirst: true });
 
     const intervals = this._collectStrongIntervals(normalized, entityId, showRules, startMs, endMs, lineColor, stateAtStart);
@@ -512,6 +510,15 @@ class SeagullHistoryCard extends HTMLElement {
         pointer-events:none;
         z-index:0;
       }
+      .seagull-history-background-layer {
+        position:absolute;
+        top:0;
+        bottom:0;
+        left:28px;
+        right:0;
+        pointer-events:none;
+        z-index:1;
+      }
       .seagull-history-grid-tick {
         position:absolute;
         top:0;
@@ -521,7 +528,7 @@ class SeagullHistoryCard extends HTMLElement {
         background:${lineColor};
         opacity:0.32;
       }
-      .seagull-history-rows { position:relative; z-index:1; display:flex; flex-direction:column; gap:10px; }
+      .seagull-history-rows { position:relative; z-index:2; display:flex; flex-direction:column; gap:10px; }
       .seagull-history-row { display:flex; flex-direction:column; gap:3px; }
       .seagull-history-row { cursor:pointer; }
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
@@ -538,7 +545,7 @@ class SeagullHistoryCard extends HTMLElement {
         position:absolute;
         top:0;
         bottom:0;
-        opacity:0.2;
+        opacity:0.28;
         pointer-events:none;
       }
       .seagull-history-pearl {
