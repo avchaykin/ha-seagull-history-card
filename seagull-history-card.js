@@ -92,12 +92,16 @@ class SeagullHistoryCard extends HTMLElement {
         <div class="seagull-history-background-layer">${bgContext.overlayHtml || ""}</div>
         <div class="seagull-history-rows">${rowsHtml}</div>
       </div>
-      ${axis.labelsHtml}
+      <div class="seagull-history-axis-wrap">
+        <div class="seagull-history-axis-bg">${bgContext.overlayHtml || ""}</div>
+        <div class="seagull-history-axis">${axis.labelsHtml}</div>
+      </div>
       ${bgContext.activeName ? `<div class="seagull-history-background-name" data-bg-release="1">${this._escapeHtml(bgContext.activeName)}</div>` : ""}
     `;
 
     this._bindRowActions();
     this._bindScaleHover();
+    this._bindAxisHover(bgContext);
     this._bindBackgroundNameAction(bgContext);
   }
 
@@ -454,12 +458,12 @@ class SeagullHistoryCard extends HTMLElement {
       else if (x >= 99.5) labelClass = " edge-right";
 
       gridTicks.push(`<div class="seagull-history-grid-tick" style="left:${x.toFixed(3)}%"></div>`);
-      labels.push(`<div class="seagull-history-axis-label${labelClass}" style="left:${x.toFixed(3)}%">${this._escapeHtml(label)}</div>`);
+      labels.push(`<div class="seagull-history-axis-label${labelClass}" data-ts="${ts}" style="left:${x.toFixed(3)}%">${this._escapeHtml(label)}</div>`);
     }
 
     return {
       gridTicksHtml: gridTicks.join(""),
-      labelsHtml: `<div class="seagull-history-axis-wrap"><div class="seagull-history-axis">${labels.join("")}</div></div>`,
+      labelsHtml: labels.join(""),
     };
   }
 
@@ -571,7 +575,7 @@ class SeagullHistoryCard extends HTMLElement {
         position:absolute;
         top:0;
         bottom:0;
-        opacity:0.28;
+        opacity:0.16;
         pointer-events:none;
       }
       .seagull-history-pearl {
@@ -604,8 +608,16 @@ class SeagullHistoryCard extends HTMLElement {
         border-bottom-right-radius:0;
       }
       .seagull-history-row-name { margin-left:28px; margin-top:-1px; font-size:12px; line-height:1.2; opacity:0.95; }
-      .seagull-history-axis-wrap { margin-left:28px; margin-top:6px; }
-      .seagull-history-axis { position:relative; height:22px; }
+      .seagull-history-axis-wrap { margin-left:28px; margin-top:6px; position:relative; height:22px; }
+      .seagull-history-axis-bg {
+        position:absolute;
+        inset:0;
+        pointer-events:none;
+      }
+      .seagull-history-axis-bg .seagull-history-bg-segment {
+        opacity:0.08;
+      }
+      .seagull-history-axis { position:relative; height:22px; z-index:1; }
       .seagull-history-axis-label {
         position:absolute;
         top:0;
@@ -613,7 +625,10 @@ class SeagullHistoryCard extends HTMLElement {
         font-size:10px;
         line-height:1;
         color:${textColor};
-        opacity:0.8;
+        opacity:0.9;
+        background:rgba(255,255,255,0.34);
+        padding:1px 4px;
+        border-radius:4px;
         white-space:nowrap;
       }
       .seagull-history-axis-label.edge-left {
@@ -720,6 +735,17 @@ class SeagullHistoryCard extends HTMLElement {
     }
   }
 
+  _bindAxisHover(bgContext) {
+    if (!bgContext?.activeId) return;
+    const labels = this._content?.querySelectorAll?.(".seagull-history-axis-label[data-ts]") || [];
+    for (const label of labels) {
+      const ts = Number(label.getAttribute("data-ts"));
+      if (!Number.isFinite(ts)) continue;
+      label.onmousemove = (ev) => this._showTooltipForEntityAtTs(ev, bgContext.activeId, ts);
+      label.onmouseleave = () => this._hideTooltip();
+    }
+  }
+
   _ensureTooltip() {
     if (this._tooltipEl) return;
     this._tooltipEl = document.createElement("div");
@@ -743,6 +769,16 @@ class SeagullHistoryCard extends HTMLElement {
     const endMs = Date.now();
     const startMs = endMs - periodMs;
     const ts = startMs + ratio * periodMs;
+
+    this._showTooltipForEntityAtTs(ev, entityId, ts);
+  }
+
+  _showTooltipForEntityAtTs(ev, entityId, ts) {
+    if (!this._tooltipEl || !this._hass) return;
+
+    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const endMs = Date.now();
+    const startMs = endMs - periodMs;
 
     const rowCfg = this._getEntityRowConfig(entityId);
     const stateObj = this._hass.states[entityId];
