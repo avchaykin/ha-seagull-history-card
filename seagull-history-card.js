@@ -53,6 +53,7 @@ class SeagullHistoryCard extends HTMLElement {
     this._lastFetchAt = 0;
     this._backgroundEnabled = true;
     this._backgroundDetachedId = null;
+    this._activePeriodIndex = 0;
     this._render();
   }
 
@@ -86,6 +87,16 @@ class SeagullHistoryCard extends HTMLElement {
     const bgContext = this._resolveBackgroundContext(theme, mode);
     const rowsHtml = this._buildRowsHtml(theme, mode, bgContext);
     const axis = this._buildTimeAxisParts();
+    const periodSwitchHtml = this._buildPeriodSwitchHtml();
+    const footerHtml = bgContext.activeName || periodSwitchHtml
+      ? `
+        <div class="seagull-history-footer">
+          <div class="seagull-history-background-name" data-bg-release="1">${bgContext.activeName ? this._escapeHtml(bgContext.activeName) : ""}</div>
+          <div class="seagull-history-period-switch">${periodSwitchHtml}</div>
+        </div>
+      `
+      : "";
+
     this._content.innerHTML = `
       <div class="seagull-history-chart">
         <div class="seagull-history-grid">${axis.gridTicksHtml}</div>
@@ -96,13 +107,14 @@ class SeagullHistoryCard extends HTMLElement {
         <div class="seagull-history-axis-bg">${bgContext.overlayHtml || ""}</div>
         <div class="seagull-history-axis">${axis.labelsHtml}</div>
       </div>
-      ${bgContext.activeName ? `<div class="seagull-history-background-name" data-bg-release="1">${this._escapeHtml(bgContext.activeName)}</div>` : ""}
+      ${footerHtml}
     `;
 
     this._bindRowActions();
     this._bindScaleHover();
     this._bindAxisHover(bgContext);
     this._bindBackgroundNameAction(bgContext);
+    this._bindPeriodSwitchActions();
   }
 
   async _maybeFetchHistory() {
@@ -114,7 +126,7 @@ class SeagullHistoryCard extends HTMLElement {
 
     if (!entities.length) return;
 
-    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const periodMs = this._parsePeriodToMs(this._getActivePeriod());
     const nowBucket = Math.floor(Date.now() / 60000);
     const fetchKey = `${entities.join(",")}|${periodMs}|${nowBucket}`;
 
@@ -219,7 +231,7 @@ class SeagullHistoryCard extends HTMLElement {
 
     const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
     const rules = this._normalizeStrongRules(activeCfg, this._config, activeId, activeStateObj, lineColor);
-    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const periodMs = this._parsePeriodToMs(this._getActivePeriod());
     const endMs = Date.now();
     const startMs = endMs - periodMs;
     const normalized = this._getNormalizedHistory(activeId);
@@ -321,7 +333,7 @@ class SeagullHistoryCard extends HTMLElement {
   _buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode, bgContext) {
     const history = this._history?.get(entityId) || [];
 
-    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const periodMs = this._parsePeriodToMs(this._getActivePeriod());
     const endMs = Date.now();
     const startMs = endMs - periodMs;
     const lineHeight = Number(theme.pearls.line_height) || 2;
@@ -435,7 +447,7 @@ class SeagullHistoryCard extends HTMLElement {
   }
 
   _buildTimeAxisParts() {
-    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const periodMs = this._parsePeriodToMs(this._getActivePeriod());
     const endMs = Date.now();
     const startMs = endMs - periodMs;
     const { stepMs, format } = this._getAxisStep(periodMs);
@@ -465,6 +477,49 @@ class SeagullHistoryCard extends HTMLElement {
       gridTicksHtml: gridTicks.join(""),
       labelsHtml: labels.join(""),
     };
+  }
+
+  _getPeriodOptions() {
+    const p = this._config?.period;
+    if (Array.isArray(p)) {
+      return p.map((x) => String(x).trim()).filter(Boolean);
+    }
+    if (p !== null && p !== undefined && String(p).trim() !== "") {
+      return [String(p).trim()];
+    }
+    return ["12h"];
+  }
+
+  _getActivePeriod() {
+    const options = this._getPeriodOptions();
+    if (!Number.isInteger(this._activePeriodIndex) || this._activePeriodIndex < 0 || this._activePeriodIndex >= options.length) {
+      this._activePeriodIndex = 0;
+    }
+    return options[this._activePeriodIndex] || "12h";
+  }
+
+  _buildPeriodSwitchHtml() {
+    const options = this._getPeriodOptions();
+    if (options.length <= 1) return "";
+    return options
+      .map((label, idx) => `<button class="seagull-history-period-btn${idx === this._activePeriodIndex ? " active" : ""}" data-period-index="${idx}">${this._escapeHtml(label)}</button>`)
+      .join("");
+  }
+
+  _bindPeriodSwitchActions() {
+    const btns = this._content?.querySelectorAll?.(".seagull-history-period-btn[data-period-index]") || [];
+    for (const btn of btns) {
+      btn.onclick = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const idx = Number(btn.getAttribute("data-period-index"));
+        if (!Number.isInteger(idx) || idx === this._activePeriodIndex) return;
+        this._activePeriodIndex = idx;
+        this._lastFetchKey = "";
+        this._render();
+        this._maybeFetchHistory();
+      };
+    }
   }
 
   _getAxisStep(periodMs) {
@@ -646,14 +701,39 @@ class SeagullHistoryCard extends HTMLElement {
       .seagull-history-axis-label.edge-right {
         transform:translateX(-100%);
       }
-      .seagull-history-background-name {
-        margin-left:28px;
+      .seagull-history-footer {
         margin-top:2px;
+        margin-left:28px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+      }
+      .seagull-history-background-name {
         font-size:11px;
         line-height:1.2;
         opacity:0.75;
         cursor:pointer;
-        width:max-content;
+        min-height:13px;
+      }
+      .seagull-history-period-switch {
+        display:flex;
+        gap:4px;
+      }
+      .seagull-history-period-btn {
+        border:none;
+        border-radius:999px;
+        padding:2px 7px;
+        font-size:10px;
+        line-height:1.3;
+        background:rgba(148, 163, 184, 0.2);
+        color:${textColor};
+        opacity:0.88;
+        cursor:pointer;
+      }
+      .seagull-history-period-btn.active {
+        background:rgba(59, 130, 246, 0.42);
+        opacity:1;
       }
       .seagull-history-tooltip {
         position:absolute;
@@ -753,7 +833,7 @@ class SeagullHistoryCard extends HTMLElement {
         if (!rect.width) return;
         const x = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
         const ratio = x / rect.width;
-        const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+        const periodMs = this._parsePeriodToMs(this._getActivePeriod());
         const endMs = Date.now();
         const startMs = endMs - periodMs;
         const ts = startMs + ratio * periodMs;
@@ -790,7 +870,7 @@ class SeagullHistoryCard extends HTMLElement {
     const x = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
     const ratio = x / rect.width;
 
-    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const periodMs = this._parsePeriodToMs(this._getActivePeriod());
     const endMs = Date.now();
     const startMs = endMs - periodMs;
     const ts = startMs + ratio * periodMs;
@@ -801,7 +881,7 @@ class SeagullHistoryCard extends HTMLElement {
   _showTooltipForEntityAtTs(ev, entityId, ts) {
     if (!this._tooltipEl || !this._hass) return;
 
-    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const periodMs = this._parsePeriodToMs(this._getActivePeriod());
     const endMs = Date.now();
     const startMs = endMs - periodMs;
 

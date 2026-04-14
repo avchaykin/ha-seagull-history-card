@@ -34,7 +34,7 @@ entities:
 
 ## Options
 
-- `period`: `1h`, `2h`, `12h`, `1d`, `2d`, `1w`, etc.
+- `period`: `1h`, `2h`, `12h`, `1d`, `2d`, `1w`, etc. or array like `["1h", "6h", "12h", "1d"]` for in-card scale switcher
 - `style`: currently `pearls`
 - `entities`: array of entities or objects
   - `entity` (required)
