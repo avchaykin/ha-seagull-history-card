@@ -887,6 +887,7 @@ class SeagullHistoryCard extends HTMLElement {
 
     const rowCfg = this._getEntityRowConfig(entityId);
     const stateObj = this._hass.states[entityId];
+    const entityName = rowCfg.name || stateObj?.attributes?.friendly_name || entityId;
     const lineColor = this._resolveColor(this._activeTheme?.theme?.pearls?.line_color, this._activeTheme?.theme, this._activeTheme?.mode) || "#94a3b8";
     const showRules = this._normalizeStrongRules(rowCfg, this._config, entityId, stateObj, lineColor);
     const normalized = this._getNormalizedHistory(entityId);
@@ -899,6 +900,7 @@ class SeagullHistoryCard extends HTMLElement {
     const futureLabel = nearest.future ? `${this._formatTs(nearest.future.ts)} (${nearest.future.state})` : "—";
 
     this._tooltipEl.innerHTML = `
+      <div><b>Сущность:</b> ${this._escapeHtml(entityName)}</div>
       <div><b>Время:</b> ${this._escapeHtml(this._formatTs(ts))}</div>
       <div><b>Состояние:</b> ${this._escapeHtml(stateAt)} (${this._escapeHtml(this._formatDuration(stateWindow.durationMs))})</div>
       <div><b>Было:</b> ${this._escapeHtml(pastLabel)}</div>
