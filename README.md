@@ -2,6 +2,8 @@
 
 Custom Lovelace card for Home Assistant to display entity history in compact visual styles.
 
+![Seagull History Card screenshot](assets/screenshot-history-card.jpg)
+
 Current style:
 - `pearls` — timeline line with pearls when a strong value appears (short events are preserved).
 
