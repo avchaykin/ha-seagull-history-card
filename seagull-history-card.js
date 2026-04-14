@@ -703,13 +703,20 @@ class SeagullHistoryCard extends HTMLElement {
 
   _bindScaleHover() {
     this._ensureTooltip();
-    const lines = this._content?.querySelectorAll?.(".seagull-history-line[data-entity]") || [];
-    for (const line of lines) {
-      const entityId = line.getAttribute("data-entity");
+    const rowLines = this._content?.querySelectorAll?.(".seagull-history-row-line") || [];
+    for (const rowLine of rowLines) {
+      const row = rowLine.closest(".seagull-history-row[data-entity]");
+      const entityId = row?.getAttribute("data-entity");
       if (!entityId) continue;
 
-      line.onmousemove = (ev) => this._showRowTooltip(ev, line.closest(".seagull-history-row"), entityId);
-      line.onmouseleave = () => this._hideTooltip();
+      rowLine.onmousemove = (ev) => {
+        if (ev.target?.closest?.(".seagull-history-row-icon")) {
+          this._hideTooltip();
+          return;
+        }
+        this._showRowTooltip(ev, rowLine, entityId);
+      };
+      rowLine.onmouseleave = () => this._hideTooltip();
     }
   }
 
