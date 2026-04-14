@@ -746,6 +746,22 @@ class SeagullHistoryCard extends HTMLElement {
 
   _bindAxisHover(bgContext) {
     if (!bgContext?.activeId) return;
+    const axis = this._content?.querySelector?.(".seagull-history-axis");
+    if (axis) {
+      axis.onmousemove = (ev) => {
+        const rect = axis.getBoundingClientRect();
+        if (!rect.width) return;
+        const x = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
+        const ratio = x / rect.width;
+        const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+        const endMs = Date.now();
+        const startMs = endMs - periodMs;
+        const ts = startMs + ratio * periodMs;
+        this._showTooltipForEntityAtTs(ev, bgContext.activeId, ts);
+      };
+      axis.onmouseleave = () => this._hideTooltip();
+    }
+
     const labels = this._content?.querySelectorAll?.(".seagull-history-axis-label[data-ts]") || [];
     for (const label of labels) {
       const ts = Number(label.getAttribute("data-ts"));
