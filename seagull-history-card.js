@@ -892,6 +892,7 @@ class SeagullHistoryCard extends HTMLElement {
     const normalized = this._getNormalizedHistory(entityId);
 
     const stateAt = this._stateAtTs(normalized, entityId, ts, { preferFirst: true });
+    const stateWindow = this._stateWindowAtTs(normalized, entityId, ts, startMs, endMs);
     const nearest = this._nearestStrongEventsSplit(ts, normalized, entityId, showRules, startMs, endMs);
 
     const pastLabel = nearest.past ? `${this._formatTs(nearest.past.ts)} (${nearest.past.state})` : "—";
@@ -899,7 +900,7 @@ class SeagullHistoryCard extends HTMLElement {
 
     this._tooltipEl.innerHTML = `
       <div><b>Время:</b> ${this._escapeHtml(this._formatTs(ts))}</div>
-      <div><b>Состояние:</b> ${this._escapeHtml(stateAt)}</div>
+      <div><b>Состояние:</b> ${this._escapeHtml(stateAt)} (${this._escapeHtml(this._formatDuration(stateWindow.durationMs))})</div>
       <div><b>Было:</b> ${this._escapeHtml(pastLabel)}</div>
       <div><b>Будет:</b> ${this._escapeHtml(futureLabel)}</div>
     `;
@@ -979,15 +980,44 @@ class SeagullHistoryCard extends HTMLElement {
     return { past, future };
   }
 
+  _stateWindowAtTs(normalized, entityId, ts, startMs, endMs) {
+    const points = [];
+    const stateAtStart = this._stateAtTs(normalized, entityId, startMs, { preferFirst: true });
+    points.push({ ts: startMs, state: stateAtStart });
+
+    for (const item of normalized) {
+      if (item.ts <= startMs || item.ts > endMs) continue;
+      points.push({ ts: item.ts, state: item.state });
+    }
+
+    points.sort((a, b) => a.ts - b.ts);
+
+    for (let i = 0; i < points.length; i += 1) {
+      const curr = points[i];
+      const nextTs = i + 1 < points.length ? points[i + 1].ts : endMs;
+      if (ts >= curr.ts && ts <= nextTs) {
+        return { state: curr.state, from: curr.ts, to: nextTs, durationMs: Math.max(0, nextTs - curr.ts) };
+      }
+    }
+
+    return { state: this._stateAtTs(normalized, entityId, ts, { preferFirst: true }), from: startMs, to: endMs, durationMs: Math.max(0, endMs - startMs) };
+  }
+
   _formatTs(ts) {
     const d = new Date(ts);
-    return d.toLocaleString("fr-FR", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    return `${hh}:${mm} ${dd}/${mo}`;
+  }
+
+  _formatDuration(ms) {
+    const totalMin = Math.max(0, Math.round(ms / 60000));
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h > 0) return `${h}ч ${String(m).padStart(2, "0")}м`;
+    return `${m}м`;
   }
 
   _normalizeTheme(custom) {
