@@ -51,6 +51,8 @@ class SeagullHistoryCard extends HTMLElement {
     this._history = new Map();
     this._lastFetchKey = "";
     this._lastFetchAt = 0;
+    this._backgroundEnabled = true;
+    this._backgroundDetachedId = null;
     this._render();
   }
 
@@ -91,11 +93,12 @@ class SeagullHistoryCard extends HTMLElement {
         <div class="seagull-history-rows">${rowsHtml}</div>
       </div>
       ${axis.labelsHtml}
-      ${bgContext.activeName ? `<div class="seagull-history-background-name">${this._escapeHtml(bgContext.activeName)}</div>` : ""}
+      ${bgContext.activeName ? `<div class="seagull-history-background-name" data-bg-release="1">${this._escapeHtml(bgContext.activeName)}</div>` : ""}
     `;
 
     this._bindRowActions();
     this._bindRowHover();
+    this._bindBackgroundNameAction(bgContext);
   }
 
   async _maybeFetchHistory() {
@@ -182,12 +185,27 @@ class SeagullHistoryCard extends HTMLElement {
 
     if (!candidates.length) {
       this._backgroundEntityId = null;
-      return { activeId: null, activeName: null, overlayHtml: "" };
+      this._backgroundDetachedId = null;
+      this._backgroundEnabled = true;
+      return { activeId: null, activeName: null, overlayHtml: "", detachedId: null };
     }
 
     const candidateIds = candidates.map((r) => r.entity);
     if (!this._backgroundEntityId || !candidateIds.includes(this._backgroundEntityId)) {
       this._backgroundEntityId = candidateIds[0];
+    }
+
+    if (this._backgroundDetachedId && !candidateIds.includes(this._backgroundDetachedId)) {
+      this._backgroundDetachedId = null;
+    }
+
+    if (this._backgroundEnabled === false) {
+      return {
+        activeId: null,
+        activeName: null,
+        overlayHtml: "",
+        detachedId: this._backgroundDetachedId || this._backgroundEntityId,
+      };
     }
 
     const activeCfg = candidates.find((r) => r.entity === this._backgroundEntityId) || candidates[0];
@@ -207,6 +225,7 @@ class SeagullHistoryCard extends HTMLElement {
       activeId,
       activeName,
       overlayHtml: this._renderBackgroundOverlay(intervals, startMs, endMs),
+      detachedId: null,
     };
   }
 
@@ -223,7 +242,8 @@ class SeagullHistoryCard extends HTMLElement {
         const isActiveBackground = bgContext?.activeId && entityId === bgContext.activeId;
         if (isActiveBackground) return "";
 
-        const isBackgroundCandidate = !!rowCfg.as_background && bgContext?.activeId && entityId !== bgContext.activeId;
+        const isBackgroundCandidate = !!rowCfg.as_background && entityId !== bgContext?.activeId;
+        const isDetachedBackground = !!bgContext?.detachedId && entityId === bgContext.detachedId;
 
         const stateObj = this._hass.states[entityId];
         const icon = this._resolveEntityIcon(rowCfg, stateObj, entityId);
@@ -235,7 +255,7 @@ class SeagullHistoryCard extends HTMLElement {
         }
 
         return `
-          <div class="seagull-history-row${isBackgroundCandidate ? " is-bg-candidate" : ""}" data-entity="${this._escapeHtml(entityId)}" role="button" tabindex="0">
+          <div class="seagull-history-row${isBackgroundCandidate ? " is-bg-candidate" : ""}${isDetachedBackground ? " is-bg-detached" : ""}" data-entity="${this._escapeHtml(entityId)}" role="button" tabindex="0">
             <div class="seagull-history-row-line">
               <ha-icon class="seagull-history-row-icon" icon="${this._escapeHtml(icon)}" ${isBackgroundCandidate ? `data-bg-switch="${this._escapeHtml(entityId)}"` : ""}></ha-icon>
               ${chartHtml}
@@ -539,6 +559,12 @@ class SeagullHistoryCard extends HTMLElement {
         opacity:0.55;
         padding:2px;
       }
+      .seagull-history-row.is-bg-detached {
+        outline:1px solid ${lineColor};
+        border-radius:8px;
+        padding:2px 4px;
+        background:rgba(148,163,184,0.08);
+      }
       .seagull-history-line { width:100%; position:relative; background:${lineColor}; }
       .seagull-history-line.pearls { min-height:1px; }
       .seagull-history-bg-segment {
@@ -602,6 +628,8 @@ class SeagullHistoryCard extends HTMLElement {
         font-size:11px;
         line-height:1.2;
         opacity:0.75;
+        cursor:pointer;
+        width:max-content;
       }
       .seagull-history-tooltip {
         position:absolute;
@@ -632,7 +660,9 @@ class SeagullHistoryCard extends HTMLElement {
         switchIcon.onclick = (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
+          this._backgroundEnabled = true;
           this._backgroundEntityId = entityId;
+          this._backgroundDetachedId = null;
           this._render();
         };
       }
@@ -656,6 +686,19 @@ class SeagullHistoryCard extends HTMLElement {
         composed: true,
       }),
     );
+  }
+
+  _bindBackgroundNameAction(bgContext) {
+    if (!bgContext?.activeId) return;
+    const el = this._content?.querySelector?.(".seagull-history-background-name[data-bg-release='1']");
+    if (!el) return;
+    el.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this._backgroundEnabled = false;
+      this._backgroundDetachedId = bgContext.activeId;
+      this._render();
+    };
   }
 
   _bindRowHover() {

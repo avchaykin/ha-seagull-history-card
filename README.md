@@ -44,6 +44,7 @@ entities:
     - first `as_background: true` entity becomes global timeline background
     - its own row is hidden, its name is shown under the time axis
     - if multiple entities have `as_background: true`, click icon on another candidate row to switch active background
+    - click active background name under the axis to return it to normal row mode (highlighted), then click its icon to set it back as background
   - `show_state` (optional)
     - string: `show_state: on`
     - common color for multiple values:
