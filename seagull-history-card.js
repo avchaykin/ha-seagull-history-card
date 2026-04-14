@@ -97,7 +97,7 @@ class SeagullHistoryCard extends HTMLElement {
     `;
 
     this._bindRowActions();
-    this._bindRowHover();
+    this._bindScaleHover();
     this._bindBackgroundNameAction(bgContext);
   }
 
@@ -701,15 +701,15 @@ class SeagullHistoryCard extends HTMLElement {
     };
   }
 
-  _bindRowHover() {
+  _bindScaleHover() {
     this._ensureTooltip();
-    const rows = this._content?.querySelectorAll?.(".seagull-history-row[data-entity]") || [];
-    for (const row of rows) {
-      const entityId = row.getAttribute("data-entity");
+    const lines = this._content?.querySelectorAll?.(".seagull-history-line[data-entity]") || [];
+    for (const line of lines) {
+      const entityId = line.getAttribute("data-entity");
       if (!entityId) continue;
 
-      row.onmousemove = (ev) => this._showRowTooltip(ev, row, entityId);
-      row.onmouseleave = () => this._hideTooltip();
+      line.onmousemove = (ev) => this._showRowTooltip(ev, line.closest(".seagull-history-row"), entityId);
+      line.onmouseleave = () => this._hideTooltip();
     }
   }
 
@@ -723,7 +723,7 @@ class SeagullHistoryCard extends HTMLElement {
   _showRowTooltip(ev, rowEl, entityId) {
     if (!this._tooltipEl || !this._hass) return;
 
-    const lineEl = rowEl.querySelector(".seagull-history-line[data-entity]");
+    const lineEl = rowEl?.matches?.(".seagull-history-line[data-entity]") ? rowEl : rowEl?.querySelector?.(".seagull-history-line[data-entity]");
     if (!lineEl) return;
 
     const rect = lineEl.getBoundingClientRect();
