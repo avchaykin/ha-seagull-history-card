@@ -33,6 +33,7 @@ class SeagullHistoryCard extends HTMLElement {
     return {
       type: "custom:seagull-history-card",
       period: "12h",
+      filter: "none",
       style: "pearls",
       entities: [{ entity: "switch.example" }],
       theme: {},
@@ -243,7 +244,8 @@ class SeagullHistoryCard extends HTMLElement {
     const startMs = endMs - periodMs;
     const normalized = this._getNormalizedHistory(activeId);
     const intervals = this._collectStrongIntervals(normalized, activeId, rules, startMs, endMs, lineColor);
-    const stats = this._collectStrongStats(normalized, activeId, rules, startMs, endMs, lineColor);
+    const statsFilterSec = this._getFilterSeconds(activeCfg, this._config);
+    const stats = this._collectStrongStats(normalized, activeId, rules, startMs, endMs, lineColor, statsFilterSec);
 
     return {
       activeId,
@@ -305,7 +307,8 @@ class SeagullHistoryCard extends HTMLElement {
     const periodMs = this._parsePeriodToMs(this._getActivePeriod());
     const endMs = Date.now();
     const startMs = endMs - periodMs;
-    const stats = this._collectStrongStats(normalized, entityId, rules, startMs, endMs, lineColor);
+    const statsFilterSec = this._getFilterSeconds(rowCfg, this._config);
+    const stats = this._collectStrongStats(normalized, entityId, rules, startMs, endMs, lineColor, statsFilterSec);
     return `${stats.entries}× ${this._formatDurationClock(stats.totalMs)}`;
   }
 
@@ -502,24 +505,47 @@ class SeagullHistoryCard extends HTMLElement {
     return intervals;
   }
 
-  _collectStrongStats(normalized, entityId, rules, startMs, endMs, lineColor) {
+  _collectStrongStats(normalized, entityId, rules, startMs, endMs, lineColor, filterSeconds = null) {
     const intervals = this._collectStrongIntervals(normalized, entityId, rules, startMs, endMs, lineColor);
+    const mergedIntervals = this._mergeIntervalsForStats(intervals, filterSeconds);
+
     let totalMs = 0;
-    for (const itv of intervals) {
+    for (const itv of mergedIntervals) {
       totalMs += Math.max(0, itv.to - itv.from);
     }
 
-    let entries = 0;
-    let prev = this._stateAtTs(normalized, entityId, startMs, { preferFirst: true });
-    for (const item of normalized) {
-      if (item.ts < startMs || item.ts > endMs) continue;
-      const nowStrong = this._isStrongState(item.state, rules);
-      const prevStrong = this._isStrongState(prev, rules);
-      if (nowStrong && !prevStrong) entries += 1;
-      prev = item.state;
+    return { entries: mergedIntervals.length, totalMs };
+  }
+
+  _mergeIntervalsForStats(intervals, filterSeconds) {
+    if (!Array.isArray(intervals) || !intervals.length) return [];
+    const gapMs = Number.isFinite(Number(filterSeconds)) ? Math.max(0, Number(filterSeconds)) * 1000 : null;
+    if (gapMs === null) return intervals.map((x) => ({ ...x }));
+
+    const sorted = [...intervals].sort((a, b) => a.from - b.from);
+    const out = [{ ...sorted[0] }];
+
+    for (let i = 1; i < sorted.length; i += 1) {
+      const curr = sorted[i];
+      const last = out[out.length - 1];
+      const gap = curr.from - last.to;
+
+      if (gap <= gapMs) {
+        last.to = Math.max(last.to, curr.to);
+      } else {
+        out.push({ ...curr });
+      }
     }
 
-    return { entries, totalMs };
+    return out;
+  }
+
+  _getFilterSeconds(rowCfg, cardCfg) {
+    const raw = rowCfg?.filter ?? cardCfg?.filter;
+    if (raw === undefined || raw === null || String(raw).trim().toLowerCase() === "none") return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return null;
+    return n;
   }
 
   _renderBackgroundOverlay(intervals, startMs, endMs) {

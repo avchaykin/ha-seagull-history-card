@@ -39,6 +39,9 @@ entities:
 
 - `period`: `1h`, `2h`, `12h`, `1d`, `2d`, `1w`, etc. or array like `["1h", "6h", "12h", "1d"]` for in-card scale switcher
 - `style`: `pearls` | `bars`
+- `filter`: `none` (default) or number of seconds for stats merge window
+  - if short gaps between active intervals are less than `filter`, they are merged in stats
+  - example: `filter: 5`
 - `entities`: array of entities or objects
   - `entity` (required)
   - `name` (optional)
@@ -50,6 +53,7 @@ entities:
     - click active background name under the axis to return it to normal row mode (highlighted), then click its icon to set it back as background
     - stats are shown for each entity: entry count into displayed state and total time in that state for current period
     - for active background entity stats are shown under its name in footer
+  - `filter` (optional, overrides card-level `filter` for this entity)
   - `show_state` (optional)
     - string: `show_state: on`
     - common color for multiple values:
