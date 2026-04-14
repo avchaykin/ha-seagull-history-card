@@ -45,7 +45,8 @@ entities:
     - its own row is hidden, its name is shown under the time axis
     - if multiple entities have `as_background: true`, click icon on another candidate row to switch active background
     - click active background name under the axis to return it to normal row mode (highlighted), then click its icon to set it back as background
-    - when background is active, stats are shown on the right under the axis: entry count into displayed state and total time in that state for current period
+    - stats are shown for each entity: entry count into displayed state and total time in that state for current period
+    - for active background entity stats are shown under its name in footer
   - `show_state` (optional)
     - string: `show_state: on`
     - common color for multiple values:

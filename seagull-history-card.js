@@ -88,13 +88,15 @@ class SeagullHistoryCard extends HTMLElement {
     const rowsHtml = this._buildRowsHtml(theme, mode, bgContext);
     const axis = this._buildTimeAxisParts();
     const periodSwitchHtml = this._buildPeriodSwitchHtml();
-    const statsHtml = bgContext.statsText ? `<div class="seagull-history-stats">${this._escapeHtml(bgContext.statsText)}</div>` : "";
+    const bgStatsHtml = bgContext.statsText ? `<div class="seagull-history-stats">${this._escapeHtml(bgContext.statsText)}</div>` : "";
     const footerHtml = bgContext.activeName || periodSwitchHtml
       ? `
         <div class="seagull-history-footer">
-          <div class="seagull-history-background-name" data-bg-release="1">${bgContext.activeName ? this._escapeHtml(bgContext.activeName) : ""}</div>
+          <div class="seagull-history-footer-left">
+            <div class="seagull-history-background-name" data-bg-release="1">${bgContext.activeName ? this._escapeHtml(bgContext.activeName) : ""}</div>
+            ${bgStatsHtml}
+          </div>
           <div class="seagull-history-footer-right">
-            ${statsHtml}
             <div class="seagull-history-period-switch">${periodSwitchHtml}</div>
           </div>
         </div>
@@ -271,6 +273,7 @@ class SeagullHistoryCard extends HTMLElement {
         const stateObj = this._hass.states[entityId];
         const icon = this._resolveEntityIcon(rowCfg, stateObj, entityId);
         const name = rowCfg.name || stateObj?.attributes?.friendly_name || entityId;
+        const statsText = this._getEntityStatsText(entityId, rowCfg, stateObj, theme, mode);
 
         let chartHtml = `<div class="seagull-history-line" data-entity="${this._escapeHtml(entityId)}"></div>`;
         if (style === "pearls") {
@@ -283,11 +286,25 @@ class SeagullHistoryCard extends HTMLElement {
               <ha-icon class="seagull-history-row-icon" icon="${this._escapeHtml(icon)}" ${isBackgroundCandidate ? `data-bg-switch="${this._escapeHtml(entityId)}"` : ""}></ha-icon>
               ${chartHtml}
             </div>
-            <div class="seagull-history-row-name">${this._escapeHtml(name)}</div>
+            <div class="seagull-history-row-meta">
+              <div class="seagull-history-row-name">${this._escapeHtml(name)}</div>
+              <div class="seagull-history-stats">${this._escapeHtml(statsText)}</div>
+            </div>
           </div>
         `;
       })
       .join("");
+  }
+
+  _getEntityStatsText(entityId, rowCfg, stateObj, theme, mode) {
+    const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
+    const rules = this._normalizeStrongRules(rowCfg, this._config, entityId, stateObj, lineColor);
+    const normalized = this._getNormalizedHistory(entityId);
+    const periodMs = this._parsePeriodToMs(this._getActivePeriod());
+    const endMs = Date.now();
+    const startMs = endMs - periodMs;
+    const stats = this._collectStrongStats(normalized, entityId, rules, startMs, endMs, lineColor);
+    return `${stats.entries} ×, ${this._formatDuration(stats.totalMs)}`;
   }
 
   _resolveEntityIcon(rowCfg, stateObj, entityId) {
@@ -689,7 +706,15 @@ class SeagullHistoryCard extends HTMLElement {
         border-top-right-radius:0;
         border-bottom-right-radius:0;
       }
-      .seagull-history-row-name { margin-left:28px; margin-top:-1px; font-size:12px; line-height:1.2; opacity:0.95; }
+      .seagull-history-row-meta {
+        margin-left:28px;
+        margin-top:-1px;
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:8px;
+      }
+      .seagull-history-row-name { font-size:12px; line-height:1.2; opacity:0.95; }
       .seagull-history-axis-wrap { margin-left:28px; margin-top:0; position:relative; height:22px; }
       .seagull-history-axis-bg {
         position:absolute;
@@ -736,6 +761,11 @@ class SeagullHistoryCard extends HTMLElement {
         justify-content:space-between;
         gap:8px;
       }
+      .seagull-history-footer-left {
+        display:flex;
+        flex-direction:column;
+        gap:2px;
+      }
       .seagull-history-footer-right {
         display:flex;
         flex-direction:column;
@@ -753,6 +783,7 @@ class SeagullHistoryCard extends HTMLElement {
         font-size:10px;
         line-height:1.2;
         opacity:0.78;
+        text-align:right;
       }
       .seagull-history-period-switch {
         display:flex;
