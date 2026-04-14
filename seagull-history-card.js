@@ -583,7 +583,7 @@ class SeagullHistoryCard extends HTMLElement {
       .seagull-history-grid {
         position:absolute;
         top:0;
-        bottom:0;
+        bottom:-6px;
         left:28px;
         right:0;
         pointer-events:none;
@@ -592,7 +592,7 @@ class SeagullHistoryCard extends HTMLElement {
       .seagull-history-background-layer {
         position:absolute;
         top:0;
-        bottom:0;
+        bottom:-6px;
         left:28px;
         right:0;
         pointer-events:none;
@@ -685,8 +685,8 @@ class SeagullHistoryCard extends HTMLElement {
       }
       .seagull-history-axis-label {
         position:absolute;
-        top:0;
-        transform:translateX(-50%);
+        top:50%;
+        transform:translate(-50%, -50%);
         font-size:10px;
         line-height:1;
         color:${textColor};
@@ -696,10 +696,10 @@ class SeagullHistoryCard extends HTMLElement {
         z-index:1;
       }
       .seagull-history-axis-label.edge-left {
-        transform:translateX(0%);
+        transform:translate(0%, -50%);
       }
       .seagull-history-axis-label.edge-right {
-        transform:translateX(-100%);
+        transform:translate(-100%, -50%);
       }
       .seagull-history-footer {
         margin-top:2px;
