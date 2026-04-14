@@ -466,10 +466,10 @@ class SeagullHistoryCard extends HTMLElement {
         opacity:0.32;
       }
       .seagull-history-rows { position:relative; z-index:1; display:flex; flex-direction:column; gap:10px; }
-      .seagull-history-row { display:flex; flex-direction:column; gap:6px; }
+      .seagull-history-row { display:flex; flex-direction:column; gap:3px; }
       .seagull-history-row { cursor:pointer; }
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
-      .seagull-history-row-icon { width:20px; height:20px; color:${textColor}; opacity:0.9; flex:0 0 auto; }
+      .seagull-history-row-icon { width:20px; height:20px; color:${textColor}; opacity:0.9; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
       .seagull-history-line { width:100%; position:relative; background:${lineColor}; }
       .seagull-history-line.pearls { min-height:1px; }
       .seagull-history-pearl {
@@ -501,7 +501,7 @@ class SeagullHistoryCard extends HTMLElement {
         border-top-right-radius:0;
         border-bottom-right-radius:0;
       }
-      .seagull-history-row-name { margin-left:28px; font-size:12px; line-height:1.2; opacity:0.95; }
+      .seagull-history-row-name { margin-left:28px; margin-top:-1px; font-size:12px; line-height:1.2; opacity:0.95; }
       .seagull-history-axis-wrap { margin-left:28px; margin-top:6px; }
       .seagull-history-axis { position:relative; height:22px; }
       .seagull-history-axis-label {
