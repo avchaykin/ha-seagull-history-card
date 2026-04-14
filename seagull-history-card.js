@@ -250,7 +250,7 @@ class SeagullHistoryCard extends HTMLElement {
       activeName,
       overlayHtml: this._renderBackgroundOverlay(intervals, startMs, endMs),
       detachedId: null,
-      statsText: `${stats.entries} ×, ${this._formatDuration(stats.totalMs)}`,
+      statsText: `${stats.entries}× ${this._formatDurationClock(stats.totalMs)}`,
     };
   }
 
@@ -304,7 +304,7 @@ class SeagullHistoryCard extends HTMLElement {
     const endMs = Date.now();
     const startMs = endMs - periodMs;
     const stats = this._collectStrongStats(normalized, entityId, rules, startMs, endMs, lineColor);
-    return `${stats.entries} ×, ${this._formatDuration(stats.totalMs)}`;
+    return `${stats.entries}× ${this._formatDurationClock(stats.totalMs)}`;
   }
 
   _resolveEntityIcon(rowCfg, stateObj, entityId) {
@@ -1089,6 +1089,13 @@ class SeagullHistoryCard extends HTMLElement {
     const m = totalMin % 60;
     if (h > 0) return `${h}ч ${String(m).padStart(2, "0")}м`;
     return `${m}м`;
+  }
+
+  _formatDurationClock(ms) {
+    const totalMin = Math.max(0, Math.round(ms / 60000));
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }
 
   _normalizeTheme(custom) {
