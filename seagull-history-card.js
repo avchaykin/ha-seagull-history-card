@@ -559,11 +559,11 @@ class SeagullHistoryCard extends HTMLElement {
         opacity:0.55;
         padding:2px;
       }
-      .seagull-history-row.is-bg-detached {
-        outline:1px solid ${lineColor};
-        border-radius:8px;
-        padding:2px 4px;
-        background:rgba(148,163,184,0.08);
+      .seagull-history-row.is-bg-detached .seagull-history-row-icon {
+        background:${lineColor};
+        border-radius:999px;
+        opacity:0.72;
+        padding:2px;
       }
       .seagull-history-line { width:100%; position:relative; background:${lineColor}; }
       .seagull-history-line.pearls { min-height:1px; }
