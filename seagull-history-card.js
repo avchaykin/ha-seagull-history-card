@@ -88,11 +88,15 @@ class SeagullHistoryCard extends HTMLElement {
     const rowsHtml = this._buildRowsHtml(theme, mode, bgContext);
     const axis = this._buildTimeAxisParts();
     const periodSwitchHtml = this._buildPeriodSwitchHtml();
+    const statsHtml = bgContext.statsText ? `<div class="seagull-history-stats">${this._escapeHtml(bgContext.statsText)}</div>` : "";
     const footerHtml = bgContext.activeName || periodSwitchHtml
       ? `
         <div class="seagull-history-footer">
           <div class="seagull-history-background-name" data-bg-release="1">${bgContext.activeName ? this._escapeHtml(bgContext.activeName) : ""}</div>
-          <div class="seagull-history-period-switch">${periodSwitchHtml}</div>
+          <div class="seagull-history-footer-right">
+            ${statsHtml}
+            <div class="seagull-history-period-switch">${periodSwitchHtml}</div>
+          </div>
         </div>
       `
       : "";
@@ -203,7 +207,7 @@ class SeagullHistoryCard extends HTMLElement {
       this._backgroundEntityId = null;
       this._backgroundDetachedId = null;
       this._backgroundEnabled = true;
-      return { activeId: null, activeName: null, overlayHtml: "", detachedId: null };
+      return { activeId: null, activeName: null, overlayHtml: "", detachedId: null, statsText: "" };
     }
 
     const candidateIds = candidates.map((r) => r.entity);
@@ -221,6 +225,7 @@ class SeagullHistoryCard extends HTMLElement {
         activeName: null,
         overlayHtml: "",
         detachedId: this._backgroundDetachedId || this._backgroundEntityId,
+        statsText: "",
       };
     }
 
@@ -236,12 +241,14 @@ class SeagullHistoryCard extends HTMLElement {
     const startMs = endMs - periodMs;
     const normalized = this._getNormalizedHistory(activeId);
     const intervals = this._collectStrongIntervals(normalized, activeId, rules, startMs, endMs, lineColor);
+    const stats = this._collectStrongStats(normalized, activeId, rules, startMs, endMs, lineColor);
 
     return {
       activeId,
       activeName,
       overlayHtml: this._renderBackgroundOverlay(intervals, startMs, endMs),
       detachedId: null,
+      statsText: `${stats.entries} ×, ${this._formatDuration(stats.totalMs)}`,
     };
   }
 
@@ -429,6 +436,26 @@ class SeagullHistoryCard extends HTMLElement {
     }
 
     return intervals;
+  }
+
+  _collectStrongStats(normalized, entityId, rules, startMs, endMs, lineColor) {
+    const intervals = this._collectStrongIntervals(normalized, entityId, rules, startMs, endMs, lineColor);
+    let totalMs = 0;
+    for (const itv of intervals) {
+      totalMs += Math.max(0, itv.to - itv.from);
+    }
+
+    let entries = 0;
+    let prev = this._stateAtTs(normalized, entityId, startMs, { preferFirst: true });
+    for (const item of normalized) {
+      if (item.ts < startMs || item.ts > endMs) continue;
+      const nowStrong = this._isStrongState(item.state, rules);
+      const prevStrong = this._isStrongState(prev, rules);
+      if (nowStrong && !prevStrong) entries += 1;
+      prev = item.state;
+    }
+
+    return { entries, totalMs };
   }
 
   _renderBackgroundOverlay(intervals, startMs, endMs) {
@@ -709,12 +736,23 @@ class SeagullHistoryCard extends HTMLElement {
         justify-content:space-between;
         gap:8px;
       }
+      .seagull-history-footer-right {
+        display:flex;
+        flex-direction:column;
+        align-items:flex-end;
+        gap:3px;
+      }
       .seagull-history-background-name {
         font-size:11px;
         line-height:1.2;
         opacity:0.75;
         cursor:pointer;
         min-height:13px;
+      }
+      .seagull-history-stats {
+        font-size:10px;
+        line-height:1.2;
+        opacity:0.78;
       }
       .seagull-history-period-switch {
         display:flex;
