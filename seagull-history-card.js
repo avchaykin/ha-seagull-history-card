@@ -81,7 +81,8 @@ class SeagullHistoryCard extends HTMLElement {
 
     this._applyCardStyles(theme, mode);
 
-    const rowsHtml = this._buildRowsHtml(theme, mode);
+    const bgContext = this._resolveBackgroundContext(theme, mode);
+    const rowsHtml = this._buildRowsHtml(theme, mode, bgContext);
     const axis = this._buildTimeAxisParts();
     this._content.innerHTML = `
       <div class="seagull-history-chart">
@@ -89,6 +90,7 @@ class SeagullHistoryCard extends HTMLElement {
         <div class="seagull-history-rows">${rowsHtml}</div>
       </div>
       ${axis.labelsHtml}
+      ${bgContext.activeName ? `<div class="seagull-history-background-name">${this._escapeHtml(bgContext.activeName)}</div>` : ""}
     `;
 
     this._bindRowActions();
@@ -171,7 +173,43 @@ class SeagullHistoryCard extends HTMLElement {
     return map;
   }
 
-  _buildRowsHtml(theme, mode) {
+  _resolveBackgroundContext(theme, mode) {
+    const entities = this._config?.entities || [];
+    const candidates = entities
+      .map((row) => (typeof row === "string" ? { entity: row } : row || {}))
+      .filter((row) => row.entity && row.as_background);
+
+    if (!candidates.length) {
+      this._backgroundEntityId = null;
+      return { activeId: null, activeName: null, overlayHtml: "" };
+    }
+
+    const candidateIds = candidates.map((r) => r.entity);
+    if (!this._backgroundEntityId || !candidateIds.includes(this._backgroundEntityId)) {
+      this._backgroundEntityId = candidateIds[0];
+    }
+
+    const activeCfg = candidates.find((r) => r.entity === this._backgroundEntityId) || candidates[0];
+    const activeId = activeCfg.entity;
+    const activeStateObj = this._hass.states[activeId];
+    const activeName = activeCfg.name || activeStateObj?.attributes?.friendly_name || activeId;
+
+    const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
+    const rules = this._normalizeStrongRules(activeCfg, this._config, activeId, activeStateObj, lineColor);
+    const periodMs = this._parsePeriodToMs(this._config.period || "12h");
+    const endMs = Date.now();
+    const startMs = endMs - periodMs;
+    const normalized = this._getNormalizedHistory(activeId);
+    const intervals = this._collectStrongIntervals(normalized, activeId, rules, startMs, endMs, lineColor);
+
+    return {
+      activeId,
+      activeName,
+      overlayHtml: this._renderBackgroundOverlay(intervals, startMs, endMs),
+    };
+  }
+
+  _buildRowsHtml(theme, mode, bgContext) {
     const style = (this._config.style || "pearls").toLowerCase();
     const entities = this._config.entities || [];
 
@@ -181,19 +219,24 @@ class SeagullHistoryCard extends HTMLElement {
         const entityId = rowCfg.entity;
         if (!entityId) return "";
 
+        const isActiveBackground = bgContext?.activeId && entityId === bgContext.activeId;
+        if (isActiveBackground) return "";
+
+        const isBackgroundCandidate = !!rowCfg.as_background && bgContext?.activeId && entityId !== bgContext.activeId;
+
         const stateObj = this._hass.states[entityId];
         const icon = this._resolveEntityIcon(rowCfg, stateObj, entityId);
         const name = rowCfg.name || stateObj?.attributes?.friendly_name || entityId;
 
         let chartHtml = `<div class="seagull-history-line" data-entity="${this._escapeHtml(entityId)}"></div>`;
         if (style === "pearls") {
-          chartHtml = this._buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode);
+          chartHtml = this._buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode, bgContext);
         }
 
         return `
-          <div class="seagull-history-row" data-entity="${this._escapeHtml(entityId)}" role="button" tabindex="0">
+          <div class="seagull-history-row${isBackgroundCandidate ? " is-bg-candidate" : ""}" data-entity="${this._escapeHtml(entityId)}" role="button" tabindex="0">
             <div class="seagull-history-row-line">
-              <ha-icon class="seagull-history-row-icon" icon="${this._escapeHtml(icon)}"></ha-icon>
+              <ha-icon class="seagull-history-row-icon" icon="${this._escapeHtml(icon)}" ${isBackgroundCandidate ? `data-bg-switch="${this._escapeHtml(entityId)}"` : ""}></ha-icon>
               ${chartHtml}
             </div>
             <div class="seagull-history-row-name">${this._escapeHtml(name)}</div>
@@ -250,7 +293,7 @@ class SeagullHistoryCard extends HTMLElement {
     return "mdi:help-circle-outline";
   }
 
-  _buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode) {
+  _buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode, bgContext) {
     const history = this._history?.get(entityId) || [];
 
     const periodMs = this._parsePeriodToMs(this._config.period || "12h");
@@ -276,46 +319,12 @@ class SeagullHistoryCard extends HTMLElement {
     const showRules = this._normalizeStrongRules(rowCfg, this._config, entityId, stateObj, lineColor);
 
     const marks = [];
+    if (bgContext?.overlayHtml) {
+      marks.push(bgContext.overlayHtml);
+    }
     const stateAtStart = this._stateAtTs(normalized, entityId, startMs, { preferFirst: true });
 
-    const intervals = [];
-    let activeStart = this._isStrongState(stateAtStart, showRules) ? startMs : null;
-    let prevState = stateAtStart;
-
-    for (const item of normalized) {
-      if (item.ts < startMs || item.ts > endMs) continue;
-      const currState = item.state;
-
-      const prevStrong = this._isStrongState(prevState, showRules);
-      const currStrong = this._isStrongState(currState, showRules);
-      const prevColor = this._getStrongColor(prevState, showRules, lineColor);
-      const currColor = this._getStrongColor(currState, showRules, lineColor);
-
-      if (prevStrong && (!currStrong || currColor !== prevColor)) {
-        intervals.push({
-          from: activeStart ?? startMs,
-          to: item.ts,
-          color: prevColor,
-        });
-        activeStart = null;
-      }
-
-      if (!prevStrong && currStrong) {
-        activeStart = item.ts;
-      } else if (prevStrong && currStrong && currColor !== prevColor) {
-        activeStart = item.ts;
-      }
-
-      prevState = currState;
-    }
-
-    if (this._isStrongState(prevState, showRules)) {
-      intervals.push({
-        from: activeStart ?? startMs,
-        to: endMs,
-        color: this._getStrongColor(prevState, showRules, lineColor),
-      });
-    }
+    const intervals = this._collectStrongIntervals(normalized, entityId, showRules, startMs, endMs, lineColor, stateAtStart);
 
     for (const itv of intervals) {
       const from = Math.max(startMs, Math.min(endMs, itv.from));
@@ -350,6 +359,57 @@ class SeagullHistoryCard extends HTMLElement {
         ${marks.join("")}
       </div>
     `;
+  }
+
+  _collectStrongIntervals(normalized, entityId, rules, startMs, endMs, lineColor, stateAtStartInput = null) {
+    const intervals = [];
+    const stateAtStart = stateAtStartInput ?? this._stateAtTs(normalized, entityId, startMs, { preferFirst: true });
+    let activeStart = this._isStrongState(stateAtStart, rules) ? startMs : null;
+    let prevState = stateAtStart;
+
+    for (const item of normalized) {
+      if (item.ts < startMs || item.ts > endMs) continue;
+      const currState = item.state;
+
+      const prevStrong = this._isStrongState(prevState, rules);
+      const currStrong = this._isStrongState(currState, rules);
+      const prevColor = this._getStrongColor(prevState, rules, lineColor);
+      const currColor = this._getStrongColor(currState, rules, lineColor);
+
+      if (prevStrong && (!currStrong || currColor !== prevColor)) {
+        intervals.push({ from: activeStart ?? startMs, to: item.ts, color: prevColor });
+        activeStart = null;
+      }
+
+      if (!prevStrong && currStrong) {
+        activeStart = item.ts;
+      } else if (prevStrong && currStrong && currColor !== prevColor) {
+        activeStart = item.ts;
+      }
+
+      prevState = currState;
+    }
+
+    if (this._isStrongState(prevState, rules)) {
+      intervals.push({ from: activeStart ?? startMs, to: endMs, color: this._getStrongColor(prevState, rules, lineColor) });
+    }
+
+    return intervals;
+  }
+
+  _renderBackgroundOverlay(intervals, startMs, endMs) {
+    const periodMs = Math.max(1, endMs - startMs);
+    const parts = [];
+    for (const itv of intervals) {
+      const from = Math.max(startMs, Math.min(endMs, itv.from));
+      const to = Math.max(startMs, Math.min(endMs, itv.to));
+      if (to < from) continue;
+      const left = ((from - startMs) / periodMs) * 100;
+      const right = ((to - startMs) / periodMs) * 100;
+      const width = Math.max(0.35, right - left);
+      parts.push(`<span class="seagull-history-bg-segment" style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%;background:${this._escapeHtml(itv.color)};"></span>`);
+    }
+    return parts.join("");
   }
 
   _buildTimeAxisParts() {
@@ -466,8 +526,21 @@ class SeagullHistoryCard extends HTMLElement {
       .seagull-history-row { cursor:pointer; }
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
       .seagull-history-row-icon { width:20px; height:20px; color:${textColor}; opacity:0.9; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+      .seagull-history-row.is-bg-candidate .seagull-history-row-icon {
+        background:${lineColor};
+        border-radius:999px;
+        opacity:0.55;
+        padding:2px;
+      }
       .seagull-history-line { width:100%; position:relative; background:${lineColor}; }
       .seagull-history-line.pearls { min-height:1px; }
+      .seagull-history-bg-segment {
+        position:absolute;
+        top:0;
+        bottom:0;
+        opacity:0.2;
+        pointer-events:none;
+      }
       .seagull-history-pearl {
         position:absolute;
         top:50%;
@@ -516,6 +589,13 @@ class SeagullHistoryCard extends HTMLElement {
       .seagull-history-axis-label.edge-right {
         transform:translateX(-100%);
       }
+      .seagull-history-background-name {
+        margin-left:28px;
+        margin-top:2px;
+        font-size:11px;
+        line-height:1.2;
+        opacity:0.75;
+      }
       .seagull-history-tooltip {
         position:absolute;
         z-index:20;
@@ -539,6 +619,16 @@ class SeagullHistoryCard extends HTMLElement {
     for (const row of rows) {
       const entityId = row.getAttribute("data-entity");
       if (!entityId) continue;
+
+      const switchIcon = row.querySelector(".seagull-history-row-icon[data-bg-switch]");
+      if (switchIcon) {
+        switchIcon.onclick = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          this._backgroundEntityId = entityId;
+          this._render();
+        };
+      }
 
       row.onclick = () => this._openMoreInfo(entityId);
       row.onkeydown = (ev) => {

@@ -40,6 +40,10 @@ entities:
   - `entity` (required)
   - `name` (optional)
   - `icon` (optional)
+  - `as_background` (optional, boolean)
+    - first `as_background: true` entity becomes global timeline background
+    - its own row is hidden, its name is shown under the time axis
+    - if multiple entities have `as_background: true`, click icon on another candidate row to switch active background
   - `show_state` (optional)
     - string: `show_state: on`
     - common color for multiple values:
@@ -62,7 +66,7 @@ entities:
     - example: `show_above: 25`
   - `show_below` (optional)
     - example: `show_below: 18`
-  - default strong values (when `show_value` omitted):
+  - default strong values (when `show_state` omitted):
     - `lock.*` -> `unlocked`
     - `cover.*` -> `open`/`opening`
     - `binary_sensor` door/window/opening/garage/lock classes -> `open`/`unlocked`/`on`
