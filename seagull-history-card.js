@@ -276,11 +276,7 @@ class SeagullHistoryCard extends HTMLElement {
     const showRules = this._normalizeStrongRules(rowCfg, this._config, entityId, stateObj, lineColor);
 
     const marks = [];
-    let stateAtStart = String(this._hass.states[entityId]?.state ?? "");
-    for (const item of normalized) {
-      if (item.ts <= startMs) stateAtStart = item.state;
-      else break;
-    }
+    const stateAtStart = this._stateAtTs(normalized, entityId, startMs, { preferFirst: true });
 
     const intervals = [];
     let activeStart = this._isStrongState(stateAtStart, showRules) ? startMs : null;
@@ -607,7 +603,7 @@ class SeagullHistoryCard extends HTMLElement {
     const showRules = this._normalizeStrongRules(rowCfg, this._config, entityId, stateObj, lineColor);
     const normalized = this._getNormalizedHistory(entityId);
 
-    const stateAt = this._stateAtTs(normalized, entityId, ts);
+    const stateAt = this._stateAtTs(normalized, entityId, ts, { preferFirst: true });
     const nearest = this._nearestStrongEventsSplit(ts, normalized, entityId, showRules, startMs, endMs);
 
     const pastLabel = nearest.past ? `${this._formatTs(nearest.past.ts)} (${nearest.past.state})` : "—";
@@ -663,18 +659,21 @@ class SeagullHistoryCard extends HTMLElement {
       .sort((a, b) => a.ts - b.ts);
   }
 
-  _stateAtTs(normalized, entityId, ts) {
-    let state = String(this._hass.states[entityId]?.state ?? "");
+  _stateAtTs(normalized, entityId, ts, options = {}) {
+    let state = null;
     for (const item of normalized) {
       if (item.ts <= ts) state = item.state;
       else break;
     }
-    return state;
+
+    if (state !== null) return String(state);
+    if (options.preferFirst && normalized.length) return String(normalized[0].state ?? "");
+    return String(this._hass.states[entityId]?.state ?? "");
   }
 
   _nearestStrongEventsSplit(ts, normalized, entityId, rules, startMs, endMs) {
     const events = [];
-    let prev = this._stateAtTs(normalized, entityId, startMs);
+    let prev = this._stateAtTs(normalized, entityId, startMs, { preferFirst: true });
     if (this._isStrongState(prev, rules)) events.push({ ts: startMs, state: prev });
     for (const item of normalized) {
       if (item.ts < startMs || item.ts > endMs) continue;
