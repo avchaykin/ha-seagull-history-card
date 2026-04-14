@@ -900,7 +900,7 @@ class SeagullHistoryCard extends HTMLElement {
     const futureLabel = nearest.future ? `${this._formatTs(nearest.future.ts)} (${nearest.future.state})` : "—";
 
     this._tooltipEl.innerHTML = `
-      <div><b>Сущность:</b> ${this._escapeHtml(entityName)}</div>
+      <div><b>${this._escapeHtml(entityName)}</b></div>
       <div><b>Время:</b> ${this._escapeHtml(this._formatTs(ts))}</div>
       <div><b>Состояние:</b> ${this._escapeHtml(stateAt)} (${this._escapeHtml(this._formatDuration(stateWindow.durationMs))})</div>
       <div><b>Было:</b> ${this._escapeHtml(pastLabel)}</div>
