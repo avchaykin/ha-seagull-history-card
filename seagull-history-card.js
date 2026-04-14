@@ -278,6 +278,8 @@ class SeagullHistoryCard extends HTMLElement {
         let chartHtml = `<div class="seagull-history-line" data-entity="${this._escapeHtml(entityId)}"></div>`;
         if (style === "pearls") {
           chartHtml = this._buildPearlsHtml(entityId, rowCfg, stateObj, theme, mode, bgContext);
+        } else if (style === "bars") {
+          chartHtml = this._buildBarsHtml(entityId, rowCfg, stateObj, theme, mode, bgContext);
         }
 
         return `
@@ -414,6 +416,51 @@ class SeagullHistoryCard extends HTMLElement {
 
     return `
       <div class="seagull-history-line pearls" data-entity="${this._escapeHtml(entityId)}" style="height:${lineHeight}px;border-radius:${lineRadius}px;background:${lineColor};--pearl-size:${pearlSize}px;--pearl-color:${pearlColor};">
+        ${marks.join("")}
+      </div>
+    `;
+  }
+
+  _buildBarsHtml(entityId, rowCfg, stateObj, theme, mode, bgContext) {
+    const history = this._history?.get(entityId) || [];
+
+    const periodMs = this._parsePeriodToMs(this._getActivePeriod());
+    const endMs = Date.now();
+    const startMs = endMs - periodMs;
+    const lineHeight = Number(theme.pearls.line_height) || 1;
+    const lineRadius = Number(theme.pearls.line_radius) || 999;
+    const pearlSize = Number(theme.pearls.pearl_size) || 12;
+    const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
+    const showRules = this._normalizeStrongRules(rowCfg, this._config, entityId, stateObj, lineColor);
+
+    const normalized = history
+      .map((it) => ({
+        state: String(it.state ?? it.s ?? ""),
+        ts: this._toEpochMs(it.last_changed || it.last_updated || it.lu || it.lc || 0),
+      }))
+      .filter((it) => Number.isFinite(it.ts))
+      .sort((a, b) => a.ts - b.ts);
+
+    const stateAtStart = this._stateAtTs(normalized, entityId, startMs, { preferFirst: true });
+    const intervals = this._collectStrongIntervals(normalized, entityId, showRules, startMs, endMs, lineColor, stateAtStart);
+
+    const barHeight = Math.max(lineHeight + 4, Math.round(pearlSize * 0.75));
+    const marks = [];
+
+    for (const itv of intervals) {
+      const from = Math.max(startMs, Math.min(endMs, itv.from));
+      const to = Math.max(startMs, Math.min(endMs, itv.to));
+      if (to < from) continue;
+
+      const left = ((from - startMs) / periodMs) * 100;
+      const right = ((to - startMs) / periodMs) * 100;
+      const width = Math.max(0.25, right - left);
+
+      marks.push(`<span class="seagull-history-bar" style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%;background:${this._escapeHtml(itv.color)};--bar-height:${barHeight}px;"></span>`);
+    }
+
+    return `
+      <div class="seagull-history-line bars" data-entity="${this._escapeHtml(entityId)}" style="height:${lineHeight}px;border-radius:${lineRadius}px;background:${lineColor};">
         ${marks.join("")}
       </div>
     `;
@@ -670,12 +717,21 @@ class SeagullHistoryCard extends HTMLElement {
       }
       .seagull-history-line { width:100%; position:relative; background:${lineColor}; }
       .seagull-history-line.pearls { min-height:1px; }
+      .seagull-history-line.bars { min-height:1px; }
       .seagull-history-bg-segment {
         position:absolute;
         top:0;
         bottom:0;
         opacity:0.16;
         pointer-events:none;
+      }
+      .seagull-history-bar {
+        position:absolute;
+        top:50%;
+        transform:translateY(-50%);
+        height:var(--bar-height, 9px);
+        border-radius:2px;
+        box-sizing:border-box;
       }
       .seagull-history-pearl {
         position:absolute;

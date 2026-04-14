@@ -4,10 +4,11 @@ Custom Lovelace card for Home Assistant to display entity history in compact vis
 
 ![Seagull History Card screenshot](assets/screenshot-history-card.jpg)
 
-Current style:
+Current styles:
 - `pearls` — timeline line with pearls when a strong value appears (short events are preserved).
+- `bars` — active/strong state is shown as rectangular bars from event start to event end.
 
-Planned next styles: bars, density, stepped segments.
+Planned next styles: density, stepped segments.
 
 ## Installation
 
@@ -37,7 +38,7 @@ entities:
 ## Options
 
 - `period`: `1h`, `2h`, `12h`, `1d`, `2d`, `1w`, etc. or array like `["1h", "6h", "12h", "1d"]` for in-card scale switcher
-- `style`: currently `pearls`
+- `style`: `pearls` | `bars`
 - `entities`: array of entities or objects
   - `entity` (required)
   - `name` (optional)
