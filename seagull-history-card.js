@@ -744,6 +744,7 @@ class SeagullHistoryCard extends HTMLElement {
 
     const textColor = this._resolveColor(theme.palette.text_color, theme, mode);
     const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
+    const axisSurfaceColor = mode === "night" ? "rgba(15,23,42,0.28)" : "rgba(255,255,255,0.18)";
 
     this._styleEl.textContent = `
       .seagull-history-chart { position:relative; }
@@ -882,7 +883,7 @@ class SeagullHistoryCard extends HTMLElement {
         right:0;
         top:0;
         bottom:0;
-        background:rgba(255,255,255,0.18);
+        background:${axisSurfaceColor};
         pointer-events:none;
       }
       .seagull-history-axis-label {
