@@ -42,6 +42,8 @@ entities:
 - `filter`: `none` (default) or number of seconds for stats merge window
   - if short gaps between active intervals are less than `filter`, they are merged in stats
   - example: `filter: 5`
+- `sun_events`: `true|false` (default `false`)
+  - when `true`, sunrise and sunset are shown as yellow dashed vertical lines across entity timeline area
 - `entities`: array of entities or objects
   - `entity` (required)
   - `name` (optional)

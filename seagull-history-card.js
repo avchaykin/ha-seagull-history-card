@@ -34,6 +34,7 @@ class SeagullHistoryCard extends HTMLElement {
       type: "custom:seagull-history-card",
       period: "12h",
       filter: "none",
+      sun_events: false,
       style: "pearls",
       entities: [{ entity: "switch.example" }],
       theme: {},
@@ -88,6 +89,7 @@ class SeagullHistoryCard extends HTMLElement {
     const bgContext = this._resolveBackgroundContext(theme, mode);
     const rowsHtml = this._buildRowsHtml(theme, mode, bgContext);
     const axis = this._buildTimeAxisParts();
+    const sunEventsHtml = this._buildSunEventsHtml();
     const periodSwitchHtml = this._buildPeriodSwitchHtml();
     const bgStatsHtml = bgContext.statsText ? `<div class="seagull-history-stats">${this._escapeHtml(bgContext.statsText)}</div>` : "";
     const footerHtml = bgContext.activeName || periodSwitchHtml
@@ -109,6 +111,7 @@ class SeagullHistoryCard extends HTMLElement {
         <div class="seagull-history-grid">${axis.gridTicksHtml}</div>
         <div class="seagull-history-background-layer">${bgContext.overlayHtml || ""}</div>
         <div class="seagull-history-rows">${rowsHtml}</div>
+        <div class="seagull-history-sun-layer">${sunEventsHtml}</div>
       </div>
       <div class="seagull-history-axis-wrap">
         <div class="seagull-history-axis-bg">${bgContext.overlayHtml || ""}</div>
@@ -596,6 +599,53 @@ class SeagullHistoryCard extends HTMLElement {
     };
   }
 
+  _buildSunEventsHtml() {
+    if (!this._config?.sun_events) return "";
+
+    const sun = this._hass?.states?.["sun.sun"];
+    if (!sun?.attributes) return "";
+
+    const periodMs = this._parsePeriodToMs(this._getActivePeriod());
+    const endMs = Date.now();
+    const startMs = endMs - periodMs;
+
+    const nextRisingMs = this._toEpochMs(sun.attributes.next_rising);
+    const nextSettingMs = this._toEpochMs(sun.attributes.next_setting);
+
+    const points = [];
+    const dayMs = 24 * 60 * 60 * 1000;
+    const collect = (baseMs, kind) => {
+      if (!Number.isFinite(baseMs)) return;
+      for (let i = -8; i <= 8; i += 1) {
+        const ts = baseMs + i * dayMs;
+        if (ts >= startMs && ts <= endMs) {
+          points.push({ ts, kind });
+        }
+      }
+    };
+
+    collect(nextRisingMs, "rising");
+    collect(nextSettingMs, "setting");
+
+    if (!points.length) return "";
+
+    points.sort((a, b) => a.ts - b.ts);
+    const unique = [];
+    for (const p of points) {
+      if (!unique.length || Math.abs(unique[unique.length - 1].ts - p.ts) > 60000) {
+        unique.push(p);
+      }
+    }
+
+    return unique
+      .map((p) => {
+        const x = ((p.ts - startMs) / periodMs) * 100;
+        const cls = p.kind === "rising" ? " rising" : " setting";
+        return `<div class="seagull-history-sun-line${cls}" style="left:${x.toFixed(3)}%"></div>`;
+      })
+      .join("");
+  }
+
   _getPeriodOptions() {
     const p = this._config?.period;
     if (Array.isArray(p)) {
@@ -725,6 +775,24 @@ class SeagullHistoryCard extends HTMLElement {
         opacity:0.32;
       }
       .seagull-history-rows { position:relative; z-index:2; display:flex; flex-direction:column; gap:10px; }
+      .seagull-history-sun-layer {
+        position:absolute;
+        top:0;
+        bottom:-6px;
+        left:28px;
+        right:0;
+        pointer-events:none;
+        z-index:3;
+      }
+      .seagull-history-sun-line {
+        position:absolute;
+        top:0;
+        bottom:0;
+        width:1px;
+        transform:translateX(-0.5px);
+        border-left:1px dashed #facc15;
+        opacity:0.72;
+      }
       .seagull-history-row { display:flex; flex-direction:column; gap:3px; }
       .seagull-history-row { cursor:pointer; }
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
