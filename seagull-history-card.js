@@ -942,9 +942,9 @@ class SeagullHistoryCard extends HTMLElement {
       .seagull-history-period-btn {
         border:none;
         border-radius:999px;
-        padding:2px 7px;
-        font-size:10px;
-        line-height:1.3;
+        padding:3px 9px;
+        font-size:11px;
+        line-height:1.35;
         background:rgba(148, 163, 184, 0.2);
         color:${textColor};
         opacity:0.88;
