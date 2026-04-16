@@ -1293,6 +1293,12 @@ class SeagullHistoryCard extends HTMLElement {
   }
 
   _resolveColor(value, theme, mode) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      if (Object.prototype.hasOwnProperty.call(value, "day") || Object.prototype.hasOwnProperty.call(value, "night")) {
+        return value[mode] ?? value.day ?? value.night;
+      }
+    }
+
     if (typeof value !== "string") return value;
     if (!value.startsWith("$")) return value;
     const key = value.slice(1);
