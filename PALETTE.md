@@ -1,30 +1,28 @@
-# Seagull History Card — Palette
+# Seagull History Card — Palette Preview
 
-Текущие конфигурируемые цвета из `SEAGULL_HISTORY_THEME_DEFAULT.palette`.
+GitHub-safe swatches (local SVG files).
 
-> Превью сделаны через badges, чтобы нормально отображались в Markdown.
-
-| Token | Light (day) | Dark (night) |
+| Name | Day | Night |
 |---|---|---|
-| `card_border` | ![](https://img.shields.io/badge/-aaaaaa-aaaaaa?style=flat-square) `#aaaaaa` | ![](https://img.shields.io/badge/-64748b-64748b?style=flat-square) `#64748b` |
-| `card_bg` | ![](https://img.shields.io/badge/-eeeeee-eeeeee?style=flat-square) `#eeeeee` | ![](https://img.shields.io/badge/-0f172a-0f172a?style=flat-square) `#0f172a` |
-| `text_color` | `inherit` | ![](https://img.shields.io/badge/-e2e8f0-e2e8f0?style=flat-square) `#e2e8f0` |
-| `icon_color` | `inherit` | ![](https://img.shields.io/badge/-e2e8f0-e2e8f0?style=flat-square) `#e2e8f0` |
-| `line_color` | ![](https://img.shields.io/badge/-94a3b8-94a3b8?style=flat-square) `#94a3b8` | ![](https://img.shields.io/badge/-475569-475569?style=flat-square) `#475569` |
-| `pearl_color` | ![](https://img.shields.io/badge/-f59e0b-f59e0b?style=flat-square) `#f59e0b` | ![](https://img.shields.io/badge/-f59e0b-f59e0b?style=flat-square) `#f59e0b` |
-| `pearl_border` | ![](https://img.shields.io/badge/-ffffff-ffffff?style=flat-square) `#ffffff` | ![](https://img.shields.io/badge/-0f172a-0f172a?style=flat-square) `#0f172a` |
-| `icon_bg_candidate` | `rgba(148,163,184,0.55)` | `rgba(71,85,105,0.55)` |
-| `icon_bg_detached` | `rgba(148,163,184,0.72)` | `rgba(71,85,105,0.72)` |
-| `grid_tick_color` | ![](https://img.shields.io/badge/-94a3b8-94a3b8?style=flat-square) `#94a3b8` | ![](https://img.shields.io/badge/-475569-475569?style=flat-square) `#475569` |
-| `sun_event_color` | ![](https://img.shields.io/badge/-facc15-facc15?style=flat-square) `#facc15` | ![](https://img.shields.io/badge/-facc15-facc15?style=flat-square) `#facc15` |
-| `axis_surface` | `rgba(255,255,255,0.18)` | `rgba(15,23,42,0.28)` |
-| `period_btn_bg` | `rgba(148,163,184,0.20)` | `rgba(100,116,139,0.26)` |
-| `period_btn_active_bg` | `rgba(59,130,246,0.42)` | `rgba(37,99,235,0.52)` |
-| `tooltip_bg` | `rgba(15,23,42,0.94)` | `rgba(2,6,23,0.94)` |
-| `tooltip_text` | ![](https://img.shields.io/badge/-f8fafc-f8fafc?style=flat-square) `#f8fafc` | ![](https://img.shields.io/badge/-f8fafc-f8fafc?style=flat-square) `#f8fafc` |
-| `tooltip_shadow` | `rgba(2,6,23,0.35)` | `rgba(2,6,23,0.45)` |
+| `card_border` | ![#aaaaaa](./palette-swatches/card_border-day.svg) | ![#64748b](./palette-swatches/card_border-night.svg) |
+| `card_bg` | ![#eeeeee](./palette-swatches/card_bg-day.svg) | ![#0f172a](./palette-swatches/card_bg-night.svg) |
+| `text_color` | ![inherit](./palette-swatches/text_color-day.svg) | ![#e2e8f0](./palette-swatches/text_color-night.svg) |
+| `icon_color` | ![inherit](./palette-swatches/icon_color-day.svg) | ![#e2e8f0](./palette-swatches/icon_color-night.svg) |
+| `line_color` | ![#94a3b8](./palette-swatches/line_color-day.svg) | ![#475569](./palette-swatches/line_color-night.svg) |
+| `pearl_color` | ![#f59e0b](./palette-swatches/pearl_color-day.svg) | ![#f59e0b](./palette-swatches/pearl_color-night.svg) |
+| `pearl_border` | ![#ffffff](./palette-swatches/pearl_border-day.svg) | ![#0f172a](./palette-swatches/pearl_border-night.svg) |
+| `icon_bg_candidate` | ![rgba(148,163,184,0.55)](./palette-swatches/icon_bg_candidate-day.svg) | ![rgba(71,85,105,0.55)](./palette-swatches/icon_bg_candidate-night.svg) |
+| `icon_bg_detached` | ![rgba(148,163,184,0.72)](./palette-swatches/icon_bg_detached-day.svg) | ![rgba(71,85,105,0.72)](./palette-swatches/icon_bg_detached-night.svg) |
+| `grid_tick_color` | ![#94a3b8](./palette-swatches/grid_tick_color-day.svg) | ![#475569](./palette-swatches/grid_tick_color-night.svg) |
+| `sun_event_color` | ![#facc15](./palette-swatches/sun_event_color-day.svg) | ![#facc15](./palette-swatches/sun_event_color-night.svg) |
+| `axis_surface` | ![rgba(255,255,255,0.18)](./palette-swatches/axis_surface-day.svg) | ![rgba(15,23,42,0.28)](./palette-swatches/axis_surface-night.svg) |
+| `period_btn_bg` | ![rgba(148,163,184,0.20)](./palette-swatches/period_btn_bg-day.svg) | ![rgba(100,116,139,0.26)](./palette-swatches/period_btn_bg-night.svg) |
+| `period_btn_active_bg` | ![rgba(59,130,246,0.42)](./palette-swatches/period_btn_active_bg-day.svg) | ![rgba(37,99,235,0.52)](./palette-swatches/period_btn_active_bg-night.svg) |
+| `tooltip_bg` | ![rgba(15,23,42,0.94)](./palette-swatches/tooltip_bg-day.svg) | ![rgba(2,6,23,0.94)](./palette-swatches/tooltip_bg-night.svg) |
+| `tooltip_text` | ![#f8fafc](./palette-swatches/tooltip_text-day.svg) | ![#f8fafc](./palette-swatches/tooltip_text-night.svg) |
+| `tooltip_shadow` | ![rgba(2,6,23,0.35)](./palette-swatches/tooltip_shadow-day.svg) | ![rgba(2,6,23,0.45)](./palette-swatches/tooltip_shadow-night.svg) |
 
-## Использование в конфиге
+## Usage example
 
 ```yaml
 type: custom:seagull-history-card

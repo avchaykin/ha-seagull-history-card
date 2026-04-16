@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24">
+  <defs>
+    <pattern id="chk" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="#f3f4f6"/>
+      <rect width="4" height="4" fill="#e5e7eb"/>
+      <rect x="4" y="4" width="4" height="4" fill="#e5e7eb"/>
+    </pattern>
+  </defs>
+  <rect x="0.5" y="0.5" width="119" height="23" rx="4" fill="url(#chk)" stroke="#cbd5e1"/>
+  <rect x="1" y="1" width="118" height="22" rx="4" fill="rgba(250,204,21,1.0)"/>
+  <text x="60" y="16" text-anchor="middle" font-family="Menlo, Monaco, Consolas, monospace" font-size="10" fill="#111827">#facc15</text>
+</svg>
