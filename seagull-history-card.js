@@ -7,9 +7,20 @@ const SEAGULL_HISTORY_THEME_DEFAULT = {
     card_border: { day: "#aaaaaa", night: "#64748b" },
     card_bg: { day: "#eeeeee", night: "#0f172a" },
     text_color: { day: "inherit", night: "#e2e8f0" },
+    icon_color: { day: "inherit", night: "#e2e8f0" },
     line_color: { day: "#94a3b8", night: "#475569" },
     pearl_color: { day: "#f59e0b", night: "#f59e0b" },
     pearl_border: { day: "#ffffff", night: "#0f172a" },
+    icon_bg_candidate: { day: "rgba(148,163,184,0.55)", night: "rgba(71,85,105,0.55)" },
+    icon_bg_detached: { day: "rgba(148,163,184,0.72)", night: "rgba(71,85,105,0.72)" },
+    grid_tick_color: { day: "#94a3b8", night: "#475569" },
+    sun_event_color: { day: "#facc15", night: "#facc15" },
+    axis_surface: { day: "rgba(255,255,255,0.18)", night: "rgba(15,23,42,0.28)" },
+    period_btn_bg: { day: "rgba(148,163,184,0.20)", night: "rgba(100,116,139,0.26)" },
+    period_btn_active_bg: { day: "rgba(59,130,246,0.42)", night: "rgba(37,99,235,0.52)" },
+    tooltip_bg: { day: "rgba(15,23,42,0.94)", night: "rgba(2,6,23,0.94)" },
+    tooltip_text: { day: "#f8fafc", night: "#f8fafc" },
+    tooltip_shadow: { day: "rgba(2,6,23,0.35)", night: "rgba(2,6,23,0.45)" },
   },
   card: {
     border_radius: 16,
@@ -743,8 +754,18 @@ class SeagullHistoryCard extends HTMLElement {
     }
 
     const textColor = this._resolveColor(theme.palette.text_color, theme, mode);
+    const iconColor = this._resolveColor(theme.palette.icon_color, theme, mode);
     const lineColor = this._resolveColor(theme.pearls.line_color, theme, mode);
-    const axisSurfaceColor = mode === "night" ? "rgba(15,23,42,0.28)" : "rgba(255,255,255,0.18)";
+    const gridTickColor = this._resolveColor(theme.palette.grid_tick_color, theme, mode) || lineColor;
+    const iconBgCandidate = this._resolveColor(theme.palette.icon_bg_candidate, theme, mode) || lineColor;
+    const iconBgDetached = this._resolveColor(theme.palette.icon_bg_detached, theme, mode) || lineColor;
+    const sunEventColor = this._resolveColor(theme.palette.sun_event_color, theme, mode) || "#facc15";
+    const axisSurfaceColor = this._resolveColor(theme.palette.axis_surface, theme, mode) || "rgba(255,255,255,0.18)";
+    const periodBtnBg = this._resolveColor(theme.palette.period_btn_bg, theme, mode) || "rgba(148,163,184,0.2)";
+    const periodBtnActiveBg = this._resolveColor(theme.palette.period_btn_active_bg, theme, mode) || "rgba(59,130,246,0.42)";
+    const tooltipBg = this._resolveColor(theme.palette.tooltip_bg, theme, mode) || "rgba(15,23,42,0.94)";
+    const tooltipText = this._resolveColor(theme.palette.tooltip_text, theme, mode) || "#f8fafc";
+    const tooltipShadow = this._resolveColor(theme.palette.tooltip_shadow, theme, mode) || "rgba(2,6,23,0.35)";
 
     this._styleEl.textContent = `
       .seagull-history-chart { position:relative; }
@@ -772,7 +793,7 @@ class SeagullHistoryCard extends HTMLElement {
         bottom:0;
         width:1px;
         transform:translateX(-0.5px);
-        background:${lineColor};
+        background:${gridTickColor};
         opacity:0.32;
       }
       .seagull-history-rows { position:relative; z-index:2; display:flex; flex-direction:column; gap:10px; }
@@ -791,23 +812,23 @@ class SeagullHistoryCard extends HTMLElement {
         bottom:0;
         width:1px;
         transform:translateX(-0.5px);
-        border-left:1px dashed #facc15;
+        border-left:1px dashed ${sunEventColor};
         opacity:0.72;
       }
       .seagull-history-row { display:flex; flex-direction:column; gap:3px; }
       .seagull-history-row { cursor:pointer; }
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
-      .seagull-history-row-icon { width:20px; height:20px; color:${textColor}; opacity:0.9; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+      .seagull-history-row-icon { width:20px; height:20px; color:${iconColor}; opacity:0.9; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
       .seagull-history-row.is-bg-candidate .seagull-history-row-icon {
-        background:${lineColor};
+        background:${iconBgCandidate};
         border-radius:999px;
-        opacity:0.55;
+        opacity:1;
         padding:2px;
       }
       .seagull-history-row.is-bg-detached .seagull-history-row-icon {
-        background:${lineColor};
+        background:${iconBgDetached};
         border-radius:999px;
-        opacity:0.72;
+        opacity:1;
         padding:2px;
       }
       .seagull-history-line { width:100%; position:relative; background:${lineColor}; }
@@ -946,26 +967,26 @@ class SeagullHistoryCard extends HTMLElement {
         padding:3px 9px;
         font-size:11px;
         line-height:1.35;
-        background:rgba(148, 163, 184, 0.2);
+        background:${periodBtnBg};
         color:${textColor};
         opacity:0.88;
         cursor:pointer;
       }
       .seagull-history-period-btn.active {
-        background:rgba(59, 130, 246, 0.42);
+        background:${periodBtnActiveBg};
         opacity:1;
       }
       .seagull-history-tooltip {
         position:absolute;
         z-index:20;
         pointer-events:none;
-        background:rgba(15, 23, 42, 0.94);
-        color:#f8fafc;
+        background:${tooltipBg};
+        color:${tooltipText};
         border-radius:8px;
         padding:8px 10px;
         font-size:11px;
         line-height:1.35;
-        box-shadow:0 6px 20px rgba(2, 6, 23, 0.35);
+        box-shadow:0 6px 20px ${tooltipShadow};
         max-width:240px;
         display:none;
       }

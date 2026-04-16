@@ -2,7 +2,7 @@
 
 Custom Lovelace card for Home Assistant to display entity history in compact visual styles.
 
-Palette: [PALETTE.md](PALETTE.md)
+Palette (with previews + all configurable UI colors): [PALETTE.md](PALETTE.md)
 
 ![Seagull History Card screenshot](assets/screenshot-history-card.jpg)
 
