@@ -892,7 +892,7 @@ class SeagullHistoryCard extends HTMLElement {
       }
       .seagull-history-row-meta {
         margin-left:28px;
-        margin-top:-1px;
+        margin-top:-3px;
         display:flex;
         align-items:flex-start;
         justify-content:space-between;
