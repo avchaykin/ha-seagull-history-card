@@ -800,7 +800,7 @@ class SeagullHistoryCard extends HTMLElement {
         background:${gridTickColor};
         opacity:0.32;
       }
-      .seagull-history-rows { position:relative; z-index:2; display:flex; flex-direction:column; gap:10px; }
+      .seagull-history-rows { position:relative; z-index:2; display:flex; flex-direction:column; gap:6px; }
       .seagull-history-sun-layer {
         position:absolute;
         top:0;
@@ -822,11 +822,11 @@ class SeagullHistoryCard extends HTMLElement {
       .seagull-history-row {
         display:flex;
         flex-direction:column;
-        gap:3px;
+        gap:2px;
         background:${rowBgColor};
-        border:1px solid ${rowBorderColor};
+        border:none;
         border-radius:10px;
-        padding:6px 8px;
+        padding:4px 6px;
       }
       .seagull-history-row { cursor:pointer; }
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
