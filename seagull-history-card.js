@@ -14,6 +14,8 @@ const SEAGULL_HISTORY_THEME_DEFAULT = {
     icon_bg_candidate: { day: "rgba(148,163,184,0.55)", night: "rgba(71,85,105,0.55)" },
     icon_bg_detached: { day: "rgba(148,163,184,0.72)", night: "rgba(71,85,105,0.72)" },
     grid_tick_color: { day: "#94a3b8", night: "#475569" },
+    row_bg: { day: "rgba(148,163,184,0.10)", night: "rgba(51,65,85,0.35)" },
+    row_border: { day: "rgba(148,163,184,0.25)", night: "rgba(100,116,139,0.28)" },
     sun_event_color: { day: "#facc15", night: "#facc15" },
     axis_surface: { day: "rgba(255,255,255,0.18)", night: "rgba(15,23,42,0.28)" },
     period_btn_bg: { day: "rgba(148,163,184,0.20)", night: "rgba(100,116,139,0.26)" },
@@ -759,6 +761,8 @@ class SeagullHistoryCard extends HTMLElement {
     const gridTickColor = this._resolveColor(theme.palette.grid_tick_color, theme, mode) || lineColor;
     const iconBgCandidate = this._resolveColor(theme.palette.icon_bg_candidate, theme, mode) || lineColor;
     const iconBgDetached = this._resolveColor(theme.palette.icon_bg_detached, theme, mode) || lineColor;
+    const rowBgColor = this._resolveColor(theme.palette.row_bg, theme, mode) || "rgba(148,163,184,0.10)";
+    const rowBorderColor = this._resolveColor(theme.palette.row_border, theme, mode) || "rgba(148,163,184,0.25)";
     const sunEventColor = this._resolveColor(theme.palette.sun_event_color, theme, mode) || "#facc15";
     const axisSurfaceColor = this._resolveColor(theme.palette.axis_surface, theme, mode) || "rgba(255,255,255,0.18)";
     const periodBtnBg = this._resolveColor(theme.palette.period_btn_bg, theme, mode) || "rgba(148,163,184,0.2)";
@@ -815,7 +819,15 @@ class SeagullHistoryCard extends HTMLElement {
         border-left:1px dashed ${sunEventColor};
         opacity:0.72;
       }
-      .seagull-history-row { display:flex; flex-direction:column; gap:3px; }
+      .seagull-history-row {
+        display:flex;
+        flex-direction:column;
+        gap:3px;
+        background:${rowBgColor};
+        border:1px solid ${rowBorderColor};
+        border-radius:10px;
+        padding:6px 8px;
+      }
       .seagull-history-row { cursor:pointer; }
       .seagull-history-row-line { display:flex; align-items:center; gap:8px; }
       .seagull-history-row-icon { width:20px; height:20px; color:${iconColor}; opacity:0.9; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }

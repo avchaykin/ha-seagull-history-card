@@ -14,6 +14,8 @@ GitHub-safe swatches (local SVG files).
 | `icon_bg_candidate` | ![rgba(148,163,184,0.55)](./palette-swatches/icon_bg_candidate-day.svg) | ![rgba(71,85,105,0.55)](./palette-swatches/icon_bg_candidate-night.svg) |
 | `icon_bg_detached` | ![rgba(148,163,184,0.72)](./palette-swatches/icon_bg_detached-day.svg) | ![rgba(71,85,105,0.72)](./palette-swatches/icon_bg_detached-night.svg) |
 | `grid_tick_color` | ![#94a3b8](./palette-swatches/grid_tick_color-day.svg) | ![#475569](./palette-swatches/grid_tick_color-night.svg) |
+| `row_bg` | ![rgba(148,163,184,0.10)](./palette-swatches/row_bg-day.svg) | ![rgba(51,65,85,0.35)](./palette-swatches/row_bg-night.svg) |
+| `row_border` | ![rgba(148,163,184,0.25)](./palette-swatches/row_border-day.svg) | ![rgba(100,116,139,0.28)](./palette-swatches/row_border-night.svg) |
 | `sun_event_color` | ![#facc15](./palette-swatches/sun_event_color-day.svg) | ![#facc15](./palette-swatches/sun_event_color-night.svg) |
 | `axis_surface` | ![rgba(255,255,255,0.18)](./palette-swatches/axis_surface-day.svg) | ![rgba(15,23,42,0.28)](./palette-swatches/axis_surface-night.svg) |
 | `period_btn_bg` | ![rgba(148,163,184,0.20)](./palette-swatches/period_btn_bg-day.svg) | ![rgba(100,116,139,0.26)](./palette-swatches/period_btn_bg-night.svg) |
